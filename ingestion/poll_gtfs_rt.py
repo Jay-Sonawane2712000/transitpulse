@@ -189,15 +189,19 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main() -> None:
-    args = parse_args()
+def capture_snapshot(
+    vehicle_url: str = VEHICLE_POSITIONS_URL,
+    trip_updates_url: str = TRIP_UPDATES_URL,
+    output_dir: str | Path = DEFAULT_OUTPUT_DIR,
+    timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS,
+) -> dict[str, Any]:
     snapshot_time = utc_now()
     snapshot_timestamp_utc = format_timestamp_utc(snapshot_time)
-    output_dir = resolve_output_dir(args.output_dir)
-    snapshot_dir = create_snapshot_dir(output_dir, snapshot_time)
+    resolved_output_dir = resolve_output_dir(output_dir)
+    snapshot_dir = create_snapshot_dir(resolved_output_dir, snapshot_time)
 
-    vehicle_feed = fetch_feed(args.vehicle_url, args.timeout_seconds)
-    trip_updates_feed = fetch_feed(args.trip_updates_url, args.timeout_seconds)
+    vehicle_feed = fetch_feed(vehicle_url, timeout_seconds)
+    trip_updates_feed = fetch_feed(trip_updates_url, timeout_seconds)
 
     vehicle_records = convert_vehicle_positions(vehicle_feed, snapshot_timestamp_utc)
     trip_update_records = convert_trip_updates(trip_updates_feed, snapshot_timestamp_utc)
@@ -216,19 +220,32 @@ def main() -> None:
     ]
     manifest = build_manifest(
         snapshot_timestamp_utc=snapshot_timestamp_utc,
-        vehicle_url=args.vehicle_url,
-        trip_updates_url=args.trip_updates_url,
+        vehicle_url=vehicle_url,
+        trip_updates_url=trip_updates_url,
         vehicle_records=vehicle_records,
         trip_update_records=trip_update_records,
         output_files=output_files,
     )
     write_json(manifest_output, manifest)
+    return manifest
 
+
+def print_success_summary(manifest: dict[str, Any]) -> None:
     print("Captured one GTFS-RT realtime snapshot.")
-    print(f"Snapshot: {snapshot_dir}")
-    print(f"Vehicle records: {len(vehicle_records)}")
-    print(f"Trip update records: {len(trip_update_records)}")
-    print(f"Manifest: {manifest_output}")
+    print(f"Vehicle records: {manifest['vehicle_record_count']}")
+    print(f"Trip update records: {manifest['trip_update_record_count']}")
+    print(f"Manifest: {manifest['output_files'][-1]}")
+
+
+def main() -> None:
+    args = parse_args()
+    manifest = capture_snapshot(
+        vehicle_url=args.vehicle_url,
+        trip_updates_url=args.trip_updates_url,
+        output_dir=args.output_dir,
+        timeout_seconds=args.timeout_seconds,
+    )
+    print_success_summary(manifest)
 
 
 if __name__ == "__main__":
