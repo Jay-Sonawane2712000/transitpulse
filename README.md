@@ -96,6 +96,16 @@ python ingestion/run_realtime_capture.py --interval-minutes 5 --duration-minutes
 
 Realtime captures are stored under `data/raw/realtime/`, which is ignored by Git.
 
+## Load Raw Data Into DuckDB
+
+Load local static GTFS files and realtime snapshot JSON files into raw DuckDB tables:
+
+```powershell
+python ingestion/load_raw_to_duckdb.py
+```
+
+The default database path is `data/warehouse/transitpulse.duckdb`. Local DuckDB database files are ignored by Git, so rebuilt warehouse files are not committed.
+
 ## Data Policy
 
 Raw full data captures are not committed to the repository. Large captures should live under `data/raw/`, which is ignored by Git. Small synthetic or representative samples may be stored under `data/samples/`.
