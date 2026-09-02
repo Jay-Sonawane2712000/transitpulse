@@ -60,6 +60,16 @@ Run the environment import test:
 python -m pytest tests/test_environment.py
 ```
 
+## Download Static GTFS Schedule Data
+
+Download the NYC MTA bus static GTFS schedule archive:
+
+```powershell
+python ingestion/download_static_gtfs.py
+```
+
+This creates `data/raw/static/`, saves the GTFS zip file there, extracts the GTFS text files into `data/raw/static/extracted/`, and writes `data/raw/static/manifest.json`. The `data/raw/` folder is ignored by Git, so raw full data captures are not committed.
+
 ## Data Policy
 
 Raw full data captures are not committed to the repository. Large captures should live under `data/raw/`, which is ignored by Git. Small synthetic or representative samples may be stored under `data/samples/`.
