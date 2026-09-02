@@ -39,7 +39,27 @@ Bus agencies and riders depend on timely, accurate service data, but realtime fe
 - plotly
 - pytest
 
+## Local Setup
+
+Create and activate a local virtual environment on Windows:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+Install project dependencies:
+
+```powershell
+python -m pip install -r requirements.txt
+```
+
+Run the environment import test:
+
+```powershell
+python -m pytest tests/test_environment.py
+```
+
 ## Data Policy
 
 Raw full data captures are not committed to the repository. Large captures should live under `data/raw/`, which is ignored by Git. Small synthetic or representative samples may be stored under `data/samples/`.
-
