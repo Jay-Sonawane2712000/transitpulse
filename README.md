@@ -70,6 +70,16 @@ python ingestion/download_static_gtfs.py
 
 This creates `data/raw/static/`, saves the GTFS zip file there, extracts the GTFS text files into `data/raw/static/extracted/`, and writes `data/raw/static/manifest.json`. The `data/raw/` folder is ignored by Git, so raw full data captures are not committed.
 
+## Capture One GTFS-RT Realtime Snapshot
+
+Capture vehicle positions and trip updates once:
+
+```powershell
+python ingestion/poll_gtfs_rt.py --vehicle-url "https://gtfsrt.prod.obanyc.com/vehiclePositions?key=YOUR_KEY" --trip-updates-url "https://gtfsrt.prod.obanyc.com/tripUpdates?key=YOUR_KEY"
+```
+
+Snapshots are stored under `data/raw/realtime/snapshot_YYYYMMDD_HHMMSS/` with `vehicle_positions.json`, `trip_updates.json`, and `manifest.json`. The `data/raw/realtime/` folder is ignored by Git, so captured realtime snapshots are not committed.
+
 ## Data Policy
 
 Raw full data captures are not committed to the repository. Large captures should live under `data/raw/`, which is ignored by Git. Small synthetic or representative samples may be stored under `data/samples/`.
