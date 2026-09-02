@@ -106,6 +106,10 @@ python ingestion/load_raw_to_duckdb.py
 
 The default database path is `data/warehouse/transitpulse.duckdb`. Local DuckDB database files are ignored by Git, so rebuilt warehouse files are not committed.
 
+## dbt Transformation Layer
+
+The `dbt/` folder contains the dbt project configuration for transforming raw GTFS and GTFS-RT DuckDB tables into staging, intermediate, and mart layers. It connects to the local DuckDB warehouse at `data/warehouse/transitpulse.duckdb`.
+
 ## Data Policy
 
 Raw full data captures are not committed to the repository. Large captures should live under `data/raw/`, which is ignored by Git. Small synthetic or representative samples may be stored under `data/samples/`.

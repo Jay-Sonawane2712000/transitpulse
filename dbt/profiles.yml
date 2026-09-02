@@ -1,0 +1,7 @@
+transitpulse:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: data/warehouse/transitpulse.duckdb
+      schema: main

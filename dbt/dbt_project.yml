@@ -1,0 +1,16 @@
+name: transitpulse
+version: "1.0.0"
+config-version: 2
+
+profile: transitpulse
+
+model-paths: ["models"]
+
+models:
+  transitpulse:
+    staging:
+      +materialized: view
+    intermediate:
+      +materialized: view
+    marts:
+      +materialized: table
