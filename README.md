@@ -80,6 +80,22 @@ python ingestion/poll_gtfs_rt.py --vehicle-url "https://gtfsrt.prod.obanyc.com/v
 
 Snapshots are stored under `data/raw/realtime/snapshot_YYYYMMDD_HHMMSS/` with `vehicle_positions.json`, `trip_updates.json`, and `manifest.json`. The `data/raw/realtime/` folder is ignored by Git, so captured realtime snapshots are not committed.
 
+## Run A Short Realtime Capture Window
+
+Run a tiny two-snapshot test window:
+
+```powershell
+python ingestion/run_realtime_capture.py --interval-minutes 1 --duration-minutes 2 --vehicle-url "https://gtfsrt.prod.obanyc.com/vehiclePositions?key=YOUR_KEY" --trip-updates-url "https://gtfsrt.prod.obanyc.com/tripUpdates?key=YOUR_KEY"
+```
+
+For a longer portfolio capture, run a 24-hour collection at five-minute intervals:
+
+```powershell
+python ingestion/run_realtime_capture.py --interval-minutes 5 --duration-minutes 1440 --vehicle-url "https://gtfsrt.prod.obanyc.com/vehiclePositions?key=YOUR_KEY" --trip-updates-url "https://gtfsrt.prod.obanyc.com/tripUpdates?key=YOUR_KEY"
+```
+
+Realtime captures are stored under `data/raw/realtime/`, which is ignored by Git.
+
 ## Data Policy
 
 Raw full data captures are not committed to the repository. Large captures should live under `data/raw/`, which is ignored by Git. Small synthetic or representative samples may be stored under `data/samples/`.
