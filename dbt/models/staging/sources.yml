@@ -1,0 +1,95 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: main
+    description: Raw GTFS static and GTFS-RT snapshot tables loaded into DuckDB.
+    tables:
+      - name: raw_routes
+        description: Raw GTFS routes reference table used to identify bus routes.
+        columns:
+          - name: route_id
+            description: Unique route identifier from the static GTFS feed.
+            data_tests:
+              - not_null
+              - unique
+
+      - name: raw_trips
+        description: Raw GTFS trips table used to identify scheduled bus trips.
+        columns:
+          - name: trip_id
+            description: Unique scheduled trip identifier from the static GTFS feed.
+            data_tests:
+              - not_null
+              - unique
+
+      - name: raw_stops
+        description: Raw GTFS stops table used as the stop reference layer.
+        columns:
+          - name: stop_id
+            description: Unique stop identifier from the static GTFS feed.
+            data_tests:
+              - not_null
+              - unique
+
+      - name: raw_stop_times
+        description: Raw GTFS stop times table representing scheduled trip-stop events.
+        columns:
+          - name: trip_id
+            description: Scheduled trip identifier for a stop time event.
+            data_tests:
+              - not_null
+          - name: stop_id
+            description: Stop identifier for a stop time event.
+            data_tests:
+              - not_null
+          - name: stop_sequence
+            description: Stop order within a scheduled trip.
+            data_tests:
+              - not_null
+
+      - name: raw_calendar
+        description: Raw GTFS service calendar defining regular service days.
+
+      - name: raw_calendar_dates
+        description: Raw GTFS service exceptions for added or removed service dates.
+
+      - name: raw_vehicle_positions
+        description: Raw GTFS-RT vehicle position entities captured per realtime snapshot.
+        loaded_at_field: cast(snapshot_timestamp_utc as timestamp)
+        freshness:
+          warn_after:
+            count: 10
+            period: minute
+          error_after:
+            count: 60
+            period: minute
+        columns:
+          - name: snapshot_timestamp_utc
+            description: UTC timestamp when the realtime snapshot was captured.
+            data_tests:
+              - not_null
+          - name: entity_id
+            description: GTFS-RT entity identifier for the vehicle position.
+            data_tests:
+              - not_null
+
+      - name: raw_trip_updates
+        description: Raw GTFS-RT trip update entities captured per realtime snapshot.
+        loaded_at_field: cast(snapshot_timestamp_utc as timestamp)
+        freshness:
+          warn_after:
+            count: 10
+            period: minute
+          error_after:
+            count: 60
+            period: minute
+        columns:
+          - name: snapshot_timestamp_utc
+            description: UTC timestamp when the realtime snapshot was captured.
+            data_tests:
+              - not_null
+          - name: entity_id
+            description: GTFS-RT entity identifier for the trip update.
+            data_tests:
+              - not_null
