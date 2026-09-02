@@ -1,0 +1,21 @@
+[project]
+name = "transitpulse"
+version = "0.1.0"
+description = "Bus service data quality and delay intelligence platform."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "requests",
+    "pandas",
+    "pyarrow",
+    "gtfs-realtime-bindings",
+    "dbt-core",
+    "dbt-duckdb",
+    "duckdb",
+    "streamlit",
+    "plotly",
+    "pytest",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

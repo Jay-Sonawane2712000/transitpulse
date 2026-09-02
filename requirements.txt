@@ -1,0 +1,11 @@
+requests
+pandas
+pyarrow
+gtfs-realtime-bindings
+dbt-core
+dbt-duckdb
+duckdb
+streamlit
+plotly
+pytest
+

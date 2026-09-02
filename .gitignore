@@ -1,0 +1,35 @@
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python caches
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environment variables
+.env
+.env.*
+
+# Raw data captures
+data/raw/
+
+# Local DuckDB databases
+*.duckdb
+*.duckdb.wal
+*.db
+*.db.wal
+
+# dbt artifacts
+dbt/target/
+dbt/logs/
+target/
+logs/
+
+# Streamlit secrets
+.streamlit/secrets.toml
+
