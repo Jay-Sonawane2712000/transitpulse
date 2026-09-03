@@ -189,3 +189,48 @@ Recommended next action:
 - Prefer the MobilityDatabase date-overlapping public archive candidates for a controlled historical-static download step.
 - Keep the current no-normalization rule: do not convert C6 to D6 by string manipulation.
 - If the MobilityDatabase archives do not contain C6 trip IDs after inspection, continue with route-level and feed-quality metrics and capture fresh realtime after `2026-09-06` when the D6 static feeds are effective.
+
+## Final Alignment Resolution
+
+The MobilityDatabase archived static GTFS feeds were downloaded to `data/raw/static_archives/c6_20260902/` and inspected. All six archived feeds cover the `2026-09-02` realtime snapshot date and contain C6 trip IDs with zero D6 trip IDs.
+
+The raw loader was rerun with:
+
+```powershell
+python ingestion/load_raw_to_duckdb.py --static-dir data/raw/static_archives/c6_20260902
+```
+
+After rebuilding dbt, `int_trip_schedule_vs_actual` matched all current trip update records to static scheduled trips:
+
+- `matched_to_static_schedule`: `29,779`
+- `unmatched_realtime_trip`: `0`
+- match rate: `100.00%`
+- unmatched rate: `0.00%`
+
+Final root cause:
+
+1. Static feed coverage was incomplete when only MTA Bus Company static GTFS was loaded. This was fixed by supporting all six MTA bus static feed families.
+2. Static/realtime schedule rating was mismatched. The current public static feeds use D6 service effective `2026-09-06`, while the `2026-09-02` realtime captures use C6 trip IDs. This was fixed by using MobilityDatabase archived C6 static feeds whose service windows include `2026-09-02`.
+
+C6-to-D6 string normalization was rejected because C6 and D6 represent different published schedule versions/effective service periods. Rewriting identifiers would create false matches instead of preserving the actual data lineage.
+
+## Reproducibility Guard
+
+The current public MTA static feeds in `data/raw/static/` use D6 trip IDs and start on `2026-09-06`, so they do not match the `2026-09-02` realtime snapshots that use C6 trip IDs.
+
+The MobilityDatabase archived C6 static feeds were downloaded into `data/raw/static_archives/c6_20260902/`. The archive identifiers and direct URLs are listed in the MobilityDatabase archive table above.
+
+To reproduce the successful alignment, load the archived static feeds with:
+
+```powershell
+python ingestion/load_raw_to_duckdb.py --static-dir data/raw/static_archives/c6_20260902
+```
+
+Validation after loading the archived feeds:
+
+- `matched_to_static_schedule`: `29,779`
+- `unmatched_realtime_trip`: `0`
+- match rate: `100.00%`
+- unmatched rate: `0.00%`
+
+A dbt singular test, `assert_trip_schedule_match_rate_above_threshold`, now protects against silent static/realtime schedule mismatch. It fails when `int_trip_schedule_vs_actual` has zero rows or when the trip schedule match rate falls below `95%`.
