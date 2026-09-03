@@ -88,3 +88,19 @@ models:
         description: Status describing whether the snapshot gap is within the expected interval.
         data_tests:
           - not_null
+
+  - name: int_feed_quality_summary
+    description: Per-snapshot summary of realtime feed volume, quality checks, freshness, and overall feed quality status.
+    columns:
+      - name: snapshot_folder
+        description: Folder containing the captured realtime snapshot.
+        data_tests:
+          - not_null
+      - name: snapshot_timestamp_utc
+        description: UTC timestamp when the realtime snapshot was captured.
+        data_tests:
+          - not_null
+      - name: feed_quality_status
+        description: Overall feed quality status for the snapshot.
+        data_tests:
+          - not_null
