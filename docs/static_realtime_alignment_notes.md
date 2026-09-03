@@ -94,6 +94,28 @@ This does not look like a simple trip ID normalization issue. Even on overlappin
 
 Do not change only one URL constant yet.
 
+Day 3 follow-up checked the following public sources:
+
+- Data.gov MTA GTFS Static Data listing for MTA Bus Company: `http://web.mta.info/developers/data/busco/google_transit.zip`
+- Transitland MTA Bus Company feed page, which lists current static GTFS as `https://rrgtfsfeeds.s3.amazonaws.com/gtfs_busco.zip` and historic GTFS as `http://web.mta.info/developers/data/busco/google_transit.zip`
+- MobilityDatabase feed `mdb-510`, which lists the MTA Bus Company producer URL and a service range of Jun 28, 2026 to Sep 5, 2026
+- Transitland Atlas MTA feed definitions, which show MTA Bus Company plus separate NYCT bus borough static feeds
+- `gtfs-realtime-archiver` agency examples, which note that MTA publishes per-borough bus GTFS schedule feeds but a unified Bus Time realtime feed
+
+The exact HTTP producer URL was tested locally:
+
+- `http://web.mta.info/developers/data/busco/google_transit.zip`
+
+It still returned a future-effective static feed with:
+
+- `feed_start_date`: `20260906`
+- `feed_end_date`: `20270102`
+- `feed_version`: `20260813`
+- `C6` trips found: `0`
+- `D6` trips found: `45424`
+
+Because this did not produce a static feed matching the Sep 2, 2026 `C6` realtime snapshots, no static URL change was kept.
+
 The next safe fix should be a scoped static-feed alignment improvement:
 
 - Support loading all MTA bus static feed families needed for MTA Bus Time:
@@ -105,5 +127,11 @@ The next safe fix should be a scoped static-feed alignment improvement:
   - NYCT Bus Staten Island
 - Ensure the static GTFS version overlaps the realtime capture date before comparing `trip_id` values.
 - Rebuild raw static tables from the aligned static feed set, then rerun dbt and recheck `schedule_match_status`.
+
+Recommended workaround for the current project phase:
+
+- Use route-level and feed-quality metrics now.
+- Treat trip-level schedule-vs-actual and on-time performance as blocked on acquiring static GTFS that overlaps the realtime capture date/version.
+- Delay trip-level on-time performance metrics until a matching static feed is captured or obtained from an archive.
 
 Until then, the zero trip match count should be treated as a feed alignment finding, not as a failed dbt join.
