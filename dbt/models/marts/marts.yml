@@ -55,3 +55,55 @@ models:
         description: Share of total realtime records with unmatched realtime trip IDs.
       - name: feed_completeness_proxy
         description: Simple completeness indicator equal to 1.0 when both vehicle positions and trip updates were captured, otherwise 0.0.
+
+  - name: dim_route
+    description: Route dimension with one row per source_feed and route_id from the aligned MTA bus static GTFS feeds.
+    columns:
+      - name: route_key
+        description: Stable route dimension key built from source_feed and route_id.
+        data_tests:
+          - not_null
+          - unique
+      - name: source_feed
+        description: Static GTFS feed origin for the route. This is part of the dimension grain because route_id values can repeat across MTA bus feed files.
+        data_tests:
+          - not_null
+      - name: route_id
+        description: GTFS route identifier, unique within source_feed.
+        data_tests:
+          - not_null
+      - name: agency_id
+        description: Agency identifier for the route.
+      - name: route_short_name
+        description: Public route short name.
+      - name: route_long_name
+        description: Public route long name.
+      - name: route_type
+        description: GTFS route type code.
+
+  - name: dim_stop
+    description: Stop dimension with one row per source_feed and stop_id from the aligned MTA bus static GTFS feeds.
+    columns:
+      - name: stop_key
+        description: Stable stop dimension key built from source_feed and stop_id.
+        data_tests:
+          - not_null
+          - unique
+      - name: source_feed
+        description: Static GTFS feed origin for the stop. This is part of the dimension grain because stop_id values can repeat across MTA bus feed files.
+        data_tests:
+          - not_null
+      - name: stop_id
+        description: GTFS stop identifier, unique within source_feed.
+        data_tests:
+          - not_null
+      - name: stop_name
+        description: Public stop name.
+      - name: stop_lat
+        description: Stop latitude.
+        data_tests:
+          - not_null
+      - name: stop_lon
+        description: Stop longitude.
+        data_tests:
+          - not_null
