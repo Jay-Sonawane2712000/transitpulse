@@ -1,0 +1,30 @@
+version: 2
+
+models:
+  - name: int_trip_schedule_vs_actual
+    description: Trip-level schedule-vs-actual bridge between realtime trip update entities and static scheduled trips.
+    columns:
+      - name: snapshot_folder
+        description: Folder containing the captured realtime snapshot.
+        data_tests:
+          - not_null
+      - name: snapshot_timestamp_utc
+        description: UTC timestamp when the realtime snapshot was captured.
+        data_tests:
+          - not_null
+      - name: entity_id
+        description: GTFS-RT trip update entity identifier.
+        data_tests:
+          - not_null
+      - name: trip_id
+        description: Realtime trip identifier used to join to the static schedule.
+        data_tests:
+          - not_null
+      - name: schedule_match_status
+        description: Indicates whether the realtime trip identifier matched the static GTFS trips table.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values:
+                  - matched_to_static_schedule
+                  - unmatched_realtime_trip
