@@ -1,0 +1,57 @@
+version: 2
+
+models:
+  - name: fct_feed_quality
+    description: Snapshot-level feed quality fact table summarizing GTFS-RT completeness, GPS quality, duplicate entity checks, trip alignment, and freshness status.
+    columns:
+      - name: snapshot_folder
+        description: Timestamped raw realtime snapshot folder. This is the grain of the model, with one row per captured snapshot folder.
+        data_tests:
+          - not_null
+      - name: snapshot_timestamp_utc
+        description: UTC timestamp when the realtime snapshot was captured.
+        data_tests:
+          - not_null
+      - name: vehicle_record_count
+        description: Number of GTFS-RT vehicle position records captured in the snapshot.
+      - name: trip_update_record_count
+        description: Number of GTFS-RT trip update records captured in the snapshot.
+      - name: total_realtime_records
+        description: Combined count of vehicle position and trip update records in the snapshot.
+      - name: null_gps_count
+        description: Count of vehicle position records missing latitude or longitude.
+      - name: duplicate_vehicle_entity_count
+        description: Count of duplicated vehicle entities identified within the same snapshot.
+      - name: duplicate_trip_update_entity_count
+        description: Count of duplicated trip update entities identified within the same snapshot.
+      - name: unmatched_realtime_trip_count
+        description: Count of realtime trip IDs that did not match the aligned static schedule.
+      - name: snapshot_gap_minutes
+        description: Minutes elapsed since the previous captured realtime snapshot.
+      - name: freshness_status
+        description: Snapshot freshness bucket based on the elapsed time since the prior snapshot.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values:
+                  - first_snapshot
+                  - within_expected_interval
+                  - late
+      - name: feed_quality_status
+        description: Overall feed quality status for the snapshot.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - healthy
+                  - warning
+                  - critical
+      - name: null_gps_rate
+        description: Share of vehicle position records missing latitude or longitude.
+      - name: duplicate_trip_update_rate
+        description: Share of trip update records flagged as duplicate entities.
+      - name: unmatched_realtime_trip_rate
+        description: Share of total realtime records with unmatched realtime trip IDs.
+      - name: feed_completeness_proxy
+        description: Simple completeness indicator equal to 1.0 when both vehicle positions and trip updates were captured, otherwise 0.0.
