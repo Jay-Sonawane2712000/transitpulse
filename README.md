@@ -62,13 +62,19 @@ python -m pytest tests/test_environment.py
 
 ## Download Static GTFS Schedule Data
 
-Download the NYC MTA bus static GTFS schedule archive:
+Download the legacy/testing single MTA Bus Company static GTFS schedule archive:
 
 ```powershell
 python ingestion/download_static_gtfs.py
 ```
 
-This creates `data/raw/static/`, saves the GTFS zip file there, extracts the GTFS text files into `data/raw/static/extracted/`, and writes `data/raw/static/manifest.json`. The `data/raw/` folder is ignored by Git, so raw full data captures are not committed.
+For TransitPulse analysis against the unified MTA Bus Time realtime feed, download all six MTA bus static feeds:
+
+```powershell
+python ingestion/download_static_gtfs.py --all-feeds
+```
+
+The single-feed command creates `data/raw/static/`, saves the GTFS zip file there, extracts the GTFS text files into `data/raw/static/extracted/`, and writes `data/raw/static/manifest.json`. The all-feeds command stores each feed under `data/raw/static/<feed_name>/` with its own zip, extracted files, and manifest, then writes a combined `data/raw/static/manifest.json`. The `data/raw/static/` folder is ignored by Git, so raw full data captures are not committed.
 
 ## Capture One GTFS-RT Realtime Snapshot
 
