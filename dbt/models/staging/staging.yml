@@ -42,13 +42,16 @@ models:
         description: UTC timestamp reported by the trip update entity.
 
   - name: stg_routes
-    description: Cleaned GTFS route reference records, one row per route.
+    description: Cleaned GTFS route reference records, one row per source feed and route.
     columns:
-      - name: route_id
-        description: Unique route identifier.
+      - name: source_feed
+        description: Static GTFS feed origin for the route record. route_id is unique within source_feed, not globally across all MTA bus static feeds.
         data_tests:
           - not_null
-          - unique
+      - name: route_id
+        description: Route identifier. This value is unique within source_feed, not globally across all MTA bus static feeds.
+        data_tests:
+          - not_null
       - name: agency_id
         description: Agency identifier for the route.
       - name: route_short_name
@@ -80,13 +83,16 @@ models:
         description: Shape identifier for the scheduled trip path.
 
   - name: stg_stops
-    description: Cleaned GTFS stop reference records, one row per stop.
+    description: Cleaned GTFS stop reference records, one row per source feed and stop.
     columns:
-      - name: stop_id
-        description: Unique stop identifier.
+      - name: source_feed
+        description: Static GTFS feed origin for the stop record. stop_id is unique within source_feed, not globally across all MTA bus static feeds.
         data_tests:
           - not_null
-          - unique
+      - name: stop_id
+        description: Stop identifier. This value is unique within source_feed, not globally across all MTA bus static feeds.
+        data_tests:
+          - not_null
       - name: stop_name
         description: Public stop name.
       - name: stop_lat
