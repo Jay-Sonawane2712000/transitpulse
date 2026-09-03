@@ -12,6 +12,17 @@ import pandas as pd
 DEFAULT_STATIC_DIR = Path("data") / "raw" / "static" / "extracted"
 DEFAULT_REALTIME_DIR = Path("data") / "raw" / "realtime"
 DEFAULT_DATABASE_PATH = Path("data") / "warehouse" / "transitpulse.duckdb"
+STATIC_ROOT_DIR = Path("data") / "raw" / "static"
+LEGACY_SOURCE_FEED = "single_feed"
+RECOGNIZED_STATIC_FEEDS = [
+    "busco",
+    "brooklyn",
+    "bronx",
+    "manhattan",
+    "queens",
+    "staten_island",
+]
+REQUIRED_STATIC_FILES = ["routes.txt", "trips.txt", "stops.txt", "stop_times.txt"]
 
 STATIC_GTFS_TABLES = {
     "routes.txt": "raw_routes",
@@ -97,18 +108,86 @@ def create_empty_table_replace(
     return 0
 
 
+def detect_static_feed_sources(static_dir: Path) -> tuple[str, list[tuple[str, Path]]]:
+    static_root = static_dir.parent if static_dir.name == "extracted" else static_dir
+    multi_feed_sources = [
+        (feed_name, static_root / feed_name / "extracted")
+        for feed_name in RECOGNIZED_STATIC_FEEDS
+        if (static_root / feed_name / "extracted").exists()
+    ]
+
+    if multi_feed_sources:
+        return "multi-feed", multi_feed_sources
+
+    if static_dir.exists():
+        return "single-feed", [(LEGACY_SOURCE_FEED, static_dir)]
+
+    return "single-feed", []
+
+
+def validate_required_static_files(feed_name: str, extracted_dir: Path) -> None:
+    missing_files = [
+        file_name
+        for file_name in REQUIRED_STATIC_FILES
+        if not (extracted_dir / file_name).exists()
+    ]
+    if missing_files:
+        missing = ", ".join(missing_files)
+        raise FileNotFoundError(
+            f"Static feed '{feed_name}' is missing required GTFS files: {missing}"
+        )
+
+
+def read_static_gtfs_file_for_feed(
+    file_path: Path,
+    source_feed: str,
+) -> pd.DataFrame:
+    dataframe = read_static_gtfs_file(file_path)
+    dataframe["source_feed"] = source_feed
+    return dataframe
+
+
+def collect_static_table_dataframes(
+    feed_sources: list[tuple[str, Path]],
+    filename: str,
+    required: bool,
+) -> list[pd.DataFrame]:
+    dataframes: list[pd.DataFrame] = []
+
+    for feed_name, extracted_dir in feed_sources:
+        file_path = extracted_dir / filename
+        if not file_path.exists():
+            if required:
+                raise FileNotFoundError(
+                    f"Static feed '{feed_name}' is missing required GTFS file: {filename}"
+                )
+            continue
+
+        dataframes.append(read_static_gtfs_file_for_feed(file_path, feed_name))
+
+    return dataframes
+
+
 def load_static_tables(
     connection: duckdb.DuckDBPyConnection,
     static_dir: Path,
 ) -> dict[str, int]:
     counts: dict[str, int] = {}
+    _, feed_sources = detect_static_feed_sources(static_dir)
+
+    for feed_name, extracted_dir in feed_sources:
+        validate_required_static_files(feed_name, extracted_dir)
 
     for filename, table_name in STATIC_GTFS_TABLES.items():
-        file_path = static_dir / filename
-        if not file_path.exists():
+        dataframes = collect_static_table_dataframes(
+            feed_sources=feed_sources,
+            filename=filename,
+            required=filename in REQUIRED_STATIC_FILES,
+        )
+        if not dataframes:
             continue
 
-        dataframe = read_static_gtfs_file(file_path)
+        dataframe = pd.concat(dataframes, ignore_index=True)
         counts[table_name] = load_dataframe_replace(connection, table_name, dataframe)
 
     return counts
@@ -207,6 +286,11 @@ def load_raw_data(
     return table_counts
 
 
+def get_loaded_feed_names(static_dir: Path) -> list[str]:
+    _, feed_sources = detect_static_feed_sources(static_dir)
+    return [feed_name for feed_name, _ in feed_sources]
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Load local raw GTFS static and realtime snapshot files into DuckDB raw tables."
@@ -228,8 +312,12 @@ def main() -> None:
         realtime_dir=realtime_dir,
         database_path=database_path,
     )
+    static_layout, _ = detect_static_feed_sources(static_dir)
+    feeds_loaded = get_loaded_feed_names(static_dir)
 
     print("Loaded raw GTFS data into DuckDB.")
+    print(f"Static layout detected: {static_layout}")
+    print(f"Static feeds loaded: {', '.join(feeds_loaded) if feeds_loaded else 'none'}")
     for table_name in sorted(table_counts):
         print(f"{table_name}: {table_counts[table_name]} rows")
     print(f"Database: {database_path}")
