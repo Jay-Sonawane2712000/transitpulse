@@ -1,0 +1,95 @@
+version: 2
+
+models:
+  - name: stg_vehicle_positions
+    description: Cleaned GTFS-RT vehicle position records, one row per vehicle entity per captured snapshot.
+    columns:
+      - name: snapshot_timestamp_utc
+        description: UTC timestamp when the realtime snapshot was captured.
+        data_tests:
+          - not_null
+      - name: entity_id
+        description: GTFS-RT entity identifier for the vehicle position.
+        data_tests:
+          - not_null
+      - name: vehicle_id
+        description: Vehicle identifier reported by the realtime feed.
+      - name: trip_id
+        description: Scheduled or realtime trip identifier associated with the vehicle.
+      - name: route_id
+        description: Route identifier associated with the vehicle.
+      - name: vehicle_timestamp_utc
+        description: UTC timestamp reported by the vehicle position entity.
+
+  - name: stg_trip_updates
+    description: Cleaned GTFS-RT trip update records, one row per trip update entity per captured snapshot.
+    columns:
+      - name: snapshot_timestamp_utc
+        description: UTC timestamp when the realtime snapshot was captured.
+        data_tests:
+          - not_null
+      - name: entity_id
+        description: GTFS-RT entity identifier for the trip update.
+        data_tests:
+          - not_null
+      - name: trip_id
+        description: Scheduled or realtime trip identifier associated with the update.
+      - name: route_id
+        description: Route identifier associated with the trip update.
+      - name: vehicle_id
+        description: Vehicle identifier associated with the trip update.
+      - name: trip_update_timestamp_utc
+        description: UTC timestamp reported by the trip update entity.
+
+  - name: stg_routes
+    description: Cleaned GTFS route reference records, one row per route.
+    columns:
+      - name: route_id
+        description: Unique route identifier.
+        data_tests:
+          - not_null
+          - unique
+      - name: agency_id
+        description: Agency identifier for the route.
+      - name: route_short_name
+        description: Public route short name.
+      - name: route_long_name
+        description: Public route long name.
+      - name: route_type
+        description: GTFS route type code.
+
+  - name: stg_trips
+    description: Cleaned GTFS scheduled trip records, one row per scheduled trip.
+    columns:
+      - name: trip_id
+        description: Unique scheduled trip identifier.
+        data_tests:
+          - not_null
+          - unique
+      - name: route_id
+        description: Route identifier for the scheduled trip.
+        data_tests:
+          - not_null
+      - name: service_id
+        description: Service calendar identifier for the scheduled trip.
+      - name: trip_headsign
+        description: Public trip headsign.
+      - name: direction_id
+        description: GTFS direction identifier.
+      - name: shape_id
+        description: Shape identifier for the scheduled trip path.
+
+  - name: stg_stops
+    description: Cleaned GTFS stop reference records, one row per stop.
+    columns:
+      - name: stop_id
+        description: Unique stop identifier.
+        data_tests:
+          - not_null
+          - unique
+      - name: stop_name
+        description: Public stop name.
+      - name: stop_lat
+        description: Stop latitude.
+      - name: stop_lon
+        description: Stop longitude.
