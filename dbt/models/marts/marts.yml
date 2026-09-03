@@ -107,3 +107,46 @@ models:
         description: Stop longitude.
         data_tests:
           - not_null
+
+  - name: fct_route_realtime_activity
+    description: Route-level realtime activity fact table with one row per route_id and snapshot_folder, summarizing vehicle position and trip update coverage without joining to source-feed-grained route dimensions.
+    columns:
+      - name: snapshot_folder
+        description: Timestamped raw realtime snapshot folder.
+        data_tests:
+          - not_null
+      - name: snapshot_timestamp_utc
+        description: UTC timestamp when the realtime snapshot was captured.
+        data_tests:
+          - not_null
+      - name: route_id
+        description: Realtime route identifier. source_feed is intentionally not part of this fact grain because GTFS-RT route IDs do not carry source feed origin.
+        data_tests:
+          - not_null
+      - name: vehicle_position_count
+        description: Count of vehicle position records for the route in the snapshot.
+      - name: trip_update_count
+        description: Count of trip update records for the route in the snapshot.
+      - name: distinct_vehicle_count
+        description: Count of distinct realtime vehicles reported for the route in the snapshot.
+      - name: distinct_trip_count
+        description: Count of distinct realtime trips reported for the route in the snapshot.
+      - name: has_vehicle_positions
+        description: Boolean indicator that the route had one or more vehicle position records in the snapshot.
+      - name: has_trip_updates
+        description: Boolean indicator that the route had one or more trip update records in the snapshot.
+      - name: total_realtime_records
+        description: Combined count of vehicle position and trip update records for the route in the snapshot.
+      - name: vehicle_to_trip_update_ratio
+        description: Ratio of vehicle position records to trip update records for the route in the snapshot.
+      - name: route_activity_status
+        description: Activity bucket describing whether the route appeared in both realtime feeds, vehicle positions only, trip updates only, or neither.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - active_with_both_feeds
+                  - active_vehicle_only
+                  - active_trip_updates_only
+                  - inactive_or_missing
