@@ -1,0 +1,90 @@
+version: 2
+
+models:
+  - name: int_quality_null_gps
+    description: Vehicle position records missing latitude or longitude values.
+    columns:
+      - name: snapshot_timestamp_utc
+        description: UTC timestamp when the realtime snapshot was captured.
+        data_tests:
+          - not_null
+      - name: snapshot_folder
+        description: Folder containing the captured realtime snapshot.
+        data_tests:
+          - not_null
+      - name: entity_id
+        description: GTFS-RT vehicle position entity identifier.
+        data_tests:
+          - not_null
+      - name: quality_issue
+        description: GPS completeness issue detected for the vehicle record.
+        data_tests:
+          - not_null
+
+  - name: int_quality_duplicate_vehicle_entities
+    description: Duplicate vehicle position entities within the same realtime snapshot.
+    columns:
+      - name: snapshot_folder
+        description: Folder containing the captured realtime snapshot.
+        data_tests:
+          - not_null
+      - name: entity_id
+        description: GTFS-RT vehicle position entity identifier.
+        data_tests:
+          - not_null
+      - name: duplicate_record_count
+        description: Number of records found for the same entity in the same snapshot.
+        data_tests:
+          - not_null
+
+  - name: int_quality_duplicate_trip_update_entities
+    description: Duplicate trip update entities within the same realtime snapshot.
+    columns:
+      - name: snapshot_folder
+        description: Folder containing the captured realtime snapshot.
+        data_tests:
+          - not_null
+      - name: entity_id
+        description: GTFS-RT trip update entity identifier.
+        data_tests:
+          - not_null
+      - name: duplicate_record_count
+        description: Number of records found for the same entity in the same snapshot.
+        data_tests:
+          - not_null
+
+  - name: int_quality_realtime_trip_referential_integrity
+    description: Realtime trip identifiers that are not present in the static scheduled trips table.
+    columns:
+      - name: realtime_source
+        description: Realtime feed where the missing trip identifier appeared.
+        data_tests:
+          - not_null
+      - name: snapshot_folder
+        description: Folder containing the captured realtime snapshot.
+        data_tests:
+          - not_null
+      - name: trip_id
+        description: Realtime trip identifier missing from static trips.
+        data_tests:
+          - not_null
+      - name: quality_issue
+        description: Referential integrity issue detected for the trip identifier.
+        data_tests:
+          - not_null
+
+  - name: int_quality_snapshot_freshness
+    description: Realtime snapshot cadence check showing gaps between captured snapshots.
+    columns:
+      - name: snapshot_folder
+        description: Folder containing the captured realtime snapshot.
+        data_tests:
+          - not_null
+      - name: snapshot_timestamp_utc
+        description: UTC timestamp when the realtime snapshot was captured.
+        data_tests:
+          - not_null
+      - name: freshness_status
+        description: Status describing whether the snapshot gap is within the expected interval.
+        data_tests:
+          - not_null
