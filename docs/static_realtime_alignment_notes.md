@@ -135,3 +135,57 @@ Recommended workaround for the current project phase:
 - Delay trip-level on-time performance metrics until a matching static feed is captured or obtained from an archive.
 
 Until then, the zero trip match count should be treated as a feed alignment finding, not as a failed dbt join.
+
+## Archive Investigation for September 2, 2026 Realtime Snapshots
+
+Follow-up investigation on `2026-09-03` checked whether historical static GTFS feeds are available for the six MTA bus static feed families needed to align with the `2026-09-02` realtime snapshots.
+
+### Transitland
+
+Transitland public feed/version pages expose historical feed version metadata for the relevant onestop IDs, including versions with service windows covering `2026-09-02`.
+
+Checked onestop IDs:
+
+- `busco`: `f-dr5r-mtabc`
+- `brooklyn`: `f-dr5r-mtanyctbusbrooklyn`
+- `bronx`: `f-dr72-mtanyctbusbronx`
+- `manhattan`: `f-dr5r-mtanyctbusmanhattan`
+- `queens`: `f-dr5x-mtanyctbusqueens`
+- `staten_island`: `f-dr5r-mtanyctbusstatenisland`
+
+Transitland observations:
+
+- Historical feed versions appear to exist.
+- The public pages show service date metadata and file metadata.
+- The API v2 download endpoint returned `401 Unauthorized` without an API key.
+- The public page configuration references a `downloadHistoricFeedVersion` role, so historic downloads may require Transitland account/API access.
+- No unauthenticated direct historic zip URL was verified from Transitland.
+
+### MobilityDatabase
+
+MobilityDatabase exposes public hosted historical GTFS zip URLs for all six MTA bus static feeds with service windows that include `2026-09-02`.
+
+Candidate date-overlapping archives:
+
+| feed | MobilityDatabase ID | dataset | downloaded_at | service range | direct zip |
+| --- | --- | --- | --- | --- | --- |
+| `busco` | `mdb-510` | `mdb-510-202606240101` | `2026-06-24T01:01:29.126797Z` | `2026-06-28T04:00:00Z` to `2026-09-06T03:59:00Z` | `https://files.mobilitydatabase.org/mdb-510/mdb-510-202606240101/mdb-510-202606240101.zip` |
+| `brooklyn` | `mdb-512` | `mdb-512-202606240055` | `2026-06-24T00:55:54.782367Z` | `2026-06-27T04:00:00Z` to `2026-09-06T03:59:00Z` | `https://files.mobilitydatabase.org/mdb-512/mdb-512-202606240055/mdb-512-202606240055.zip` |
+| `bronx` | `mdb-528` | `mdb-528-202606240058` | `2026-06-24T00:58:13.146737Z` | `2026-06-27T04:00:00Z` to `2026-09-06T03:59:00Z` | `https://files.mobilitydatabase.org/mdb-528/mdb-528-202606240058/mdb-528-202606240058.zip` |
+| `manhattan` | `mdb-513` | `mdb-513-202606240130` | `2026-06-24T01:30:17.518575Z` | `2026-06-27T04:00:00Z` to `2026-09-06T03:59:00Z` | `https://files.mobilitydatabase.org/mdb-513/mdb-513-202606240130/mdb-513-202606240130.zip` |
+| `queens` | `mdb-520` | `mdb-520-202606240102` | `2026-06-24T01:02:20.886010Z` | `2026-06-27T04:00:00Z` to `2026-09-06T03:59:00Z` | `https://files.mobilitydatabase.org/mdb-520/mdb-520-202606240102/mdb-520-202606240102.zip` |
+| `staten_island` | `mdb-514` | `mdb-514-202607290026` | `2026-07-29T00:26:41.442361Z` | `2026-06-28T04:00:00Z` to `2026-09-06T03:59:00Z` | `https://files.mobilitydatabase.org/mdb-514/mdb-514-202607290026/mdb-514-202607290026.zip` |
+
+Each listed MobilityDatabase zip URL was verified with an HTTP `HEAD` request returning `200 OK`, `content-type: application/zip`, and byte ranges enabled. The files were not downloaded during this investigation step.
+
+Important caveat:
+
+- These MobilityDatabase archives overlap the realtime snapshot date and are strong candidates for the needed C6 static dataset.
+- The archive metadata does not expose individual `trip_id` values, so C6 trip IDs have not yet been confirmed without downloading and inspecting `trips.txt`.
+- The next safe project step is to download these six archived feeds into a separate archived-static raw folder, inspect `trips.txt` for C6 trip IDs, then rerun the raw loader/dbt matching check if C6 is confirmed.
+
+Recommended next action:
+
+- Prefer the MobilityDatabase date-overlapping public archive candidates for a controlled historical-static download step.
+- Keep the current no-normalization rule: do not convert C6 to D6 by string manipulation.
+- If the MobilityDatabase archives do not contain C6 trip IDs after inspection, continue with route-level and feed-quality metrics and capture fresh realtime after `2026-09-06` when the D6 static feeds are effective.
