@@ -28,3 +28,47 @@ models:
                 values:
                   - matched_to_static_schedule
                   - unmatched_realtime_trip
+
+  - name: int_realtime_stop_time_updates
+    description: Normalized GTFS-RT stop_time_updates, one row per realtime stop update per trip and snapshot, preserving arrival/departure times and delay fields exactly where available.
+    columns:
+      - name: snapshot_folder
+        description: Folder containing the captured realtime snapshot.
+        data_tests:
+          - not_null
+      - name: snapshot_timestamp_utc
+        description: UTC timestamp when the realtime snapshot was captured.
+        data_tests:
+          - not_null
+      - name: entity_id
+        description: GTFS-RT trip update entity identifier.
+        data_tests:
+          - not_null
+      - name: trip_id
+        description: Realtime trip identifier associated with the stop update.
+        data_tests:
+          - not_null
+      - name: route_id
+        description: Realtime route identifier associated with the trip update.
+      - name: vehicle_id
+        description: Vehicle identifier associated with the trip update.
+      - name: stop_id
+        description: Stop identifier from the realtime stop update when provided.
+      - name: stop_sequence
+        description: Stop sequence from the realtime stop update when provided.
+      - name: arrival_time_utc
+        description: Realtime arrival epoch converted to a UTC timestamp when provided.
+      - name: arrival_delay_seconds
+        description: Explicit realtime arrival delay in seconds when provided by GTFS-RT.
+      - name: departure_time_utc
+        description: Realtime departure epoch converted to a UTC timestamp when provided.
+      - name: departure_delay_seconds
+        description: Explicit realtime departure delay in seconds when provided by GTFS-RT.
+      - name: stop_update_has_arrival_time
+        description: Boolean indicator that the realtime stop update included an arrival_time epoch.
+      - name: stop_update_has_departure_time
+        description: Boolean indicator that the realtime stop update included a departure_time epoch.
+      - name: stop_update_has_arrival_delay
+        description: Boolean indicator that the realtime stop update included an explicit arrival_delay.
+      - name: stop_update_has_departure_delay
+        description: Boolean indicator that the realtime stop update included an explicit departure_delay.
