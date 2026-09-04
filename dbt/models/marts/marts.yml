@@ -201,6 +201,8 @@ models:
         description: Minimum estimated delay in minutes across matched realtime stop updates for the trip and snapshot.
       - name: estimated_delay_minutes
         description: Trip-level estimated delay in minutes, currently set to avg_estimated_delay_minutes.
+      - name: delay_minutes_abs
+        description: Absolute value of estimated_delay_minutes, useful for identifying large schedule-derived delay deviations in either direction.
       - name: on_time_flag
         description: True when estimated_delay_minutes is between -1 and 5 minutes, false when outside that range, and null when delay is unavailable.
       - name: delay_data_status
@@ -213,3 +215,29 @@ models:
                   - delay_available
                   - delay_unavailable
                   - schedule_time_parse_issue
+      - name: delay_sanity_status
+        description: Sanity classification for schedule-derived delay estimates, separating plausible values from extreme early or late outliers.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - delay_unavailable
+                  - plausible
+                  - extreme_early
+                  - extreme_late
+      - name: delay_band
+        description: Stakeholder-friendly delay band for grouping trip-snapshot delay estimates.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - unavailable
+                  - early_more_than_5_min
+                  - early_1_to_5_min
+                  - on_time
+                  - late_5_to_15_min
+                  - late_15_to_30_min
+                  - late_30_to_60_min
+                  - late_over_60_min

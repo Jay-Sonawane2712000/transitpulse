@@ -181,6 +181,7 @@ select
     trip_delay_summary.max_estimated_delay_minutes,
     trip_delay_summary.min_estimated_delay_minutes,
     trip_delay_summary.avg_estimated_delay_minutes as estimated_delay_minutes,
+    abs(trip_delay_summary.avg_estimated_delay_minutes) as delay_minutes_abs,
     case
         when trip_delay_summary.avg_estimated_delay_minutes is null then null
         when trip_delay_summary.avg_estimated_delay_minutes between -1 and 5 then true
@@ -191,7 +192,28 @@ select
         when coalesce(trip_delay_summary.matched_stop_update_count, 0) = 0 then 'delay_unavailable'
         when coalesce(trip_delay_summary.schedule_time_parse_issue_count, 0) > 0 then 'schedule_time_parse_issue'
         else 'delay_unavailable'
-    end as delay_data_status
+    end as delay_data_status,
+    case
+        when trip_delay_summary.avg_estimated_delay_minutes is null then 'delay_unavailable'
+        when trip_delay_summary.avg_estimated_delay_minutes < -15 then 'extreme_early'
+        when trip_delay_summary.avg_estimated_delay_minutes > 60 then 'extreme_late'
+        else 'plausible'
+    end as delay_sanity_status,
+    case
+        when trip_delay_summary.avg_estimated_delay_minutes is null then 'unavailable'
+        when trip_delay_summary.avg_estimated_delay_minutes < -5 then 'early_more_than_5_min'
+        when trip_delay_summary.avg_estimated_delay_minutes >= -5
+            and trip_delay_summary.avg_estimated_delay_minutes < -1 then 'early_1_to_5_min'
+        when trip_delay_summary.avg_estimated_delay_minutes >= -1
+            and trip_delay_summary.avg_estimated_delay_minutes <= 5 then 'on_time'
+        when trip_delay_summary.avg_estimated_delay_minutes > 5
+            and trip_delay_summary.avg_estimated_delay_minutes <= 15 then 'late_5_to_15_min'
+        when trip_delay_summary.avg_estimated_delay_minutes > 15
+            and trip_delay_summary.avg_estimated_delay_minutes <= 30 then 'late_15_to_30_min'
+        when trip_delay_summary.avg_estimated_delay_minutes > 30
+            and trip_delay_summary.avg_estimated_delay_minutes <= 60 then 'late_30_to_60_min'
+        when trip_delay_summary.avg_estimated_delay_minutes > 60 then 'late_over_60_min'
+    end as delay_band
 from trip_snapshot_base
 left join trip_delay_summary
     on trip_snapshot_base.snapshot_folder = trip_delay_summary.snapshot_folder
