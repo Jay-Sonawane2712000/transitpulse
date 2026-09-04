@@ -150,3 +150,62 @@ models:
                   - active_vehicle_only
                   - active_trip_updates_only
                   - inactive_or_missing
+
+  - name: fct_on_time_performance
+    description: Trip-level on-time performance fact table with one row per trip_id and snapshot_folder, using realtime stop update timestamps and explicit GTFS-RT delay fields when provided. Schedule-derived delay is left unavailable until a dedicated stop-time schedule normalization layer is added.
+    columns:
+      - name: snapshot_folder
+        description: Timestamped raw realtime snapshot folder.
+        data_tests:
+          - not_null
+      - name: snapshot_timestamp_utc
+        description: UTC timestamp when the realtime snapshot was captured.
+        data_tests:
+          - not_null
+      - name: trip_id
+        description: Realtime trip identifier matched to the aligned static schedule.
+        data_tests:
+          - not_null
+      - name: route_id
+        description: Realtime route identifier associated with the trip.
+        data_tests:
+          - not_null
+      - name: vehicle_id
+        description: Vehicle identifier associated with the trip update.
+      - name: trip_headsign
+        description: Scheduled trip headsign from static GTFS.
+      - name: direction_id
+        description: Scheduled GTFS direction identifier.
+      - name: schedule_match_status
+        description: Whether the realtime trip_id matched the aligned static schedule.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - matched_to_static_schedule
+                  - unmatched_realtime_trip
+      - name: stop_update_count
+        description: Count of realtime stop updates available for the trip in the snapshot.
+      - name: first_realtime_stop_time_utc
+        description: Earliest realtime stop update timestamp for the trip in the snapshot.
+      - name: last_realtime_stop_time_utc
+        description: Latest realtime stop update timestamp for the trip in the snapshot.
+      - name: max_arrival_delay_minutes
+        description: Maximum explicit arrival delay in minutes when provided by GTFS-RT.
+      - name: max_departure_delay_minutes
+        description: Maximum explicit departure delay in minutes when provided by GTFS-RT.
+      - name: estimated_delay_minutes
+        description: Maximum explicit GTFS-RT delay in minutes when provided. This remains null when the feed provides realtime stop epochs but no explicit delay fields.
+      - name: on_time_flag
+        description: True when estimated_delay_minutes is between -1 and 5 minutes, false when outside that range, and null when delay is unavailable.
+      - name: delay_data_status
+        description: Indicates whether delay was available, unavailable, or blocked by schedule time parsing.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - delay_available
+                  - delay_unavailable
+                  - schedule_time_parse_issue

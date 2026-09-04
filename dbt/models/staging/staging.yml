@@ -99,3 +99,19 @@ models:
         description: Stop latitude.
       - name: stop_lon
         description: Stop longitude.
+
+  - name: stg_stop_times
+    description: Minimal cleaned GTFS stop-time records used to compare realtime trip updates against scheduled trip-stop times.
+    columns:
+      - name: trip_id
+        description: Scheduled trip identifier for a stop time event.
+        data_tests:
+          - not_null
+      - name: stop_id
+        description: Scheduled stop identifier for a stop time event.
+        data_tests:
+          - not_null
+      - name: stop_sequence
+        description: Stop order within the scheduled trip.
+        data_tests:
+          - not_null
