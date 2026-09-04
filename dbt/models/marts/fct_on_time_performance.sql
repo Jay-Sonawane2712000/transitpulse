@@ -1,89 +1,198 @@
-with trip_updates as (
+with trip_snapshot_base as (
 
     select
-        schedule.snapshot_folder,
-        schedule.snapshot_timestamp_utc,
-        schedule.trip_id,
-        schedule.realtime_route_id as route_id,
-        schedule.vehicle_id,
-        schedule.trip_headsign,
-        schedule.direction_id,
-        schedule.schedule_match_status,
-        updates.stop_time_updates
-    from {{ ref('int_trip_schedule_vs_actual') }} as schedule
-    left join {{ ref('stg_trip_updates') }} as updates
-        on schedule.snapshot_folder = updates.snapshot_folder
-        and schedule.entity_id = updates.entity_id
+        snapshot_folder,
+        min(snapshot_timestamp_utc) as snapshot_timestamp_utc,
+        trip_id,
+        any_value(realtime_route_id) as route_id,
+        any_value(vehicle_id) as vehicle_id,
+        any_value(trip_headsign) as trip_headsign,
+        any_value(direction_id) as direction_id,
+        any_value(schedule_match_status) as schedule_match_status
+    from {{ ref('int_trip_schedule_vs_actual') }}
+    group by 1, 3
 
 ),
 
 realtime_stop_updates as (
 
     select
-        trip_updates.snapshot_folder,
-        trip_updates.snapshot_timestamp_utc,
-        trip_updates.trip_id,
-        trip_updates.route_id,
-        trip_updates.vehicle_id,
-        trip_updates.trip_headsign,
-        trip_updates.direction_id,
-        trip_updates.schedule_match_status,
-        try_cast(json_extract(json_update.value, '$.arrival_time') as bigint) as arrival_epoch,
-        try_cast(json_extract(json_update.value, '$.departure_time') as bigint) as departure_epoch,
-        try_cast(json_extract(json_update.value, '$.arrival_delay') as double) / 60.0 as arrival_delay_minutes,
-        try_cast(json_extract(json_update.value, '$.departure_delay') as double) / 60.0 as departure_delay_minutes
-    from trip_updates,
-        json_each(trip_updates.stop_time_updates) as json_update
-    where trip_updates.stop_time_updates is not null
+        snapshot_folder,
+        snapshot_timestamp_utc,
+        entity_id,
+        trip_id,
+        route_id,
+        vehicle_id,
+        stop_id,
+        stop_sequence,
+        arrival_time_utc,
+        arrival_delay_seconds,
+        departure_time_utc,
+        departure_delay_seconds
+    from {{ ref('int_realtime_stop_time_updates') }}
 
 ),
 
-trip_level as (
+scheduled_stop_times as (
+
+    select
+        trip_id,
+        stop_id,
+        stop_sequence,
+        try_cast(split_part(arrival_time, ':', 1) as integer) * 3600
+            + try_cast(split_part(arrival_time, ':', 2) as integer) * 60
+            + try_cast(split_part(arrival_time, ':', 3) as integer) as arrival_seconds_after_midnight,
+        try_cast(split_part(departure_time, ':', 1) as integer) * 3600
+            + try_cast(split_part(departure_time, ':', 2) as integer) * 60
+            + try_cast(split_part(departure_time, ':', 3) as integer) as departure_seconds_after_midnight
+    from {{ ref('stg_stop_times') }}
+    where trip_id in (
+        select distinct trip_id
+        from realtime_stop_updates
+    )
+
+),
+
+stop_level_delays as (
+
+    select
+        realtime_stop_updates.snapshot_folder,
+        realtime_stop_updates.snapshot_timestamp_utc,
+        realtime_stop_updates.trip_id,
+        realtime_stop_updates.arrival_time_utc,
+        realtime_stop_updates.departure_time_utc,
+        realtime_stop_updates.arrival_delay_seconds,
+        realtime_stop_updates.departure_delay_seconds,
+        coalesce(
+            scheduled_by_sequence.arrival_seconds_after_midnight,
+            scheduled_by_stop.arrival_seconds_after_midnight
+        ) as arrival_seconds_after_midnight,
+        coalesce(
+            scheduled_by_sequence.departure_seconds_after_midnight,
+            scheduled_by_stop.departure_seconds_after_midnight
+        ) as departure_seconds_after_midnight,
+        scheduled_by_sequence.trip_id is not null
+            or scheduled_by_stop.trip_id is not null as matched_scheduled_stop,
+        case
+            when coalesce(
+                scheduled_by_sequence.trip_id,
+                scheduled_by_stop.trip_id
+            ) is not null
+            and coalesce(
+                scheduled_by_sequence.arrival_seconds_after_midnight,
+                scheduled_by_sequence.departure_seconds_after_midnight,
+                scheduled_by_stop.arrival_seconds_after_midnight,
+                scheduled_by_stop.departure_seconds_after_midnight
+            ) is null
+                then true
+            else false
+        end as schedule_time_parse_failed,
+        case
+            when realtime_stop_updates.arrival_delay_seconds is not null
+                then cast(realtime_stop_updates.arrival_delay_seconds as double) / 60.0
+            when realtime_stop_updates.arrival_time_utc is not null
+                and coalesce(
+                    scheduled_by_sequence.arrival_seconds_after_midnight,
+                    scheduled_by_stop.arrival_seconds_after_midnight
+                ) is not null
+                then date_diff(
+                    'second',
+                    date_trunc('day', realtime_stop_updates.arrival_time_utc - interval 4 hours)
+                        + interval 4 hours
+                        + coalesce(
+                            scheduled_by_sequence.arrival_seconds_after_midnight,
+                            scheduled_by_stop.arrival_seconds_after_midnight
+                        ) * interval 1 second,
+                    realtime_stop_updates.arrival_time_utc
+                ) / 60.0
+        end as estimated_arrival_delay_minutes,
+        case
+            when realtime_stop_updates.departure_delay_seconds is not null
+                then cast(realtime_stop_updates.departure_delay_seconds as double) / 60.0
+            when realtime_stop_updates.departure_time_utc is not null
+                and coalesce(
+                    scheduled_by_sequence.departure_seconds_after_midnight,
+                    scheduled_by_stop.departure_seconds_after_midnight
+                ) is not null
+                then date_diff(
+                    'second',
+                    date_trunc('day', realtime_stop_updates.departure_time_utc - interval 4 hours)
+                        + interval 4 hours
+                        + coalesce(
+                            scheduled_by_sequence.departure_seconds_after_midnight,
+                            scheduled_by_stop.departure_seconds_after_midnight
+                        ) * interval 1 second,
+                    realtime_stop_updates.departure_time_utc
+                ) / 60.0
+        end as estimated_departure_delay_minutes
+    from realtime_stop_updates
+    left join scheduled_stop_times as scheduled_by_sequence
+        on realtime_stop_updates.trip_id = scheduled_by_sequence.trip_id
+        and realtime_stop_updates.stop_sequence = scheduled_by_sequence.stop_sequence
+        and (
+            realtime_stop_updates.stop_id is null
+            or realtime_stop_updates.stop_id = scheduled_by_sequence.stop_id
+        )
+    left join scheduled_stop_times as scheduled_by_stop
+        on realtime_stop_updates.trip_id = scheduled_by_stop.trip_id
+        and realtime_stop_updates.stop_sequence is null
+        and realtime_stop_updates.stop_id = scheduled_by_stop.stop_id
+
+),
+
+trip_delay_summary as (
 
     select
         snapshot_folder,
-        min(snapshot_timestamp_utc) as snapshot_timestamp_utc,
         trip_id,
-        any_value(route_id) as route_id,
-        any_value(vehicle_id) as vehicle_id,
-        any_value(trip_headsign) as trip_headsign,
-        any_value(direction_id) as direction_id,
-        any_value(schedule_match_status) as schedule_match_status,
         count(*) as stop_update_count,
-        to_timestamp(min(coalesce(arrival_epoch, departure_epoch))) at time zone 'UTC' as first_realtime_stop_time_utc,
-        to_timestamp(max(coalesce(departure_epoch, arrival_epoch))) at time zone 'UTC' as last_realtime_stop_time_utc,
-        max(arrival_delay_minutes) as max_arrival_delay_minutes,
-        max(departure_delay_minutes) as max_departure_delay_minutes,
-        max(coalesce(arrival_delay_minutes, departure_delay_minutes)) as estimated_delay_minutes,
-        case
-            when count(coalesce(arrival_delay_minutes, departure_delay_minutes)) > 0 then 'delay_available'
-            when count(coalesce(arrival_epoch, departure_epoch)) > 0 then 'delay_unavailable'
-            else 'schedule_time_parse_issue'
-        end as delay_data_status
-    from realtime_stop_updates
-    group by 1, 3
+        sum(case when matched_scheduled_stop then 1 else 0 end) as matched_stop_update_count,
+        min(coalesce(arrival_time_utc, departure_time_utc)) as first_realtime_stop_time_utc,
+        max(coalesce(departure_time_utc, arrival_time_utc)) as last_realtime_stop_time_utc,
+        avg(coalesce(estimated_arrival_delay_minutes, estimated_departure_delay_minutes)) as avg_estimated_delay_minutes,
+        max(coalesce(estimated_arrival_delay_minutes, estimated_departure_delay_minutes)) as max_estimated_delay_minutes,
+        min(coalesce(estimated_arrival_delay_minutes, estimated_departure_delay_minutes)) as min_estimated_delay_minutes,
+        sum(
+            case
+                when coalesce(estimated_arrival_delay_minutes, estimated_departure_delay_minutes) is not null then 1
+                else 0
+            end
+        ) as estimated_delay_stop_count,
+        sum(case when schedule_time_parse_failed then 1 else 0 end) as schedule_time_parse_issue_count
+    from stop_level_delays
+    group by 1, 2
 
 )
 
 select
-    snapshot_folder,
-    snapshot_timestamp_utc,
-    trip_id,
-    route_id,
-    vehicle_id,
-    trip_headsign,
-    direction_id,
-    schedule_match_status,
-    stop_update_count,
-    first_realtime_stop_time_utc,
-    last_realtime_stop_time_utc,
-    max_arrival_delay_minutes,
-    max_departure_delay_minutes,
-    estimated_delay_minutes,
+    trip_snapshot_base.snapshot_folder,
+    trip_snapshot_base.snapshot_timestamp_utc,
+    trip_snapshot_base.trip_id,
+    trip_snapshot_base.route_id,
+    trip_snapshot_base.vehicle_id,
+    trip_snapshot_base.trip_headsign,
+    trip_snapshot_base.direction_id,
+    trip_snapshot_base.schedule_match_status,
+    coalesce(trip_delay_summary.stop_update_count, 0) as stop_update_count,
+    coalesce(trip_delay_summary.matched_stop_update_count, 0) as matched_stop_update_count,
+    trip_delay_summary.first_realtime_stop_time_utc,
+    trip_delay_summary.last_realtime_stop_time_utc,
+    trip_delay_summary.avg_estimated_delay_minutes,
+    trip_delay_summary.max_estimated_delay_minutes,
+    trip_delay_summary.min_estimated_delay_minutes,
+    trip_delay_summary.avg_estimated_delay_minutes as estimated_delay_minutes,
     case
-        when estimated_delay_minutes is null then null
-        when estimated_delay_minutes between -1 and 5 then true
+        when trip_delay_summary.avg_estimated_delay_minutes is null then null
+        when trip_delay_summary.avg_estimated_delay_minutes between -1 and 5 then true
         else false
     end as on_time_flag,
-    delay_data_status
-from trip_level
+    case
+        when coalesce(trip_delay_summary.estimated_delay_stop_count, 0) > 0 then 'delay_available'
+        when coalesce(trip_delay_summary.matched_stop_update_count, 0) = 0 then 'delay_unavailable'
+        when coalesce(trip_delay_summary.schedule_time_parse_issue_count, 0) > 0 then 'schedule_time_parse_issue'
+        else 'delay_unavailable'
+    end as delay_data_status
+from trip_snapshot_base
+left join trip_delay_summary
+    on trip_snapshot_base.snapshot_folder = trip_delay_summary.snapshot_folder
+    and trip_snapshot_base.trip_id = trip_delay_summary.trip_id
