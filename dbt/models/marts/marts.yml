@@ -282,3 +282,90 @@ models:
                   - stable
                   - variable
                   - highly_variable
+
+  - name: fct_anomaly_findings
+    description: Production-facing anomaly findings fact table with one row per detected TransitPulse rule-based anomaly across snapshot, route, trip, vehicle, and trip-update grains.
+    columns:
+      - name: anomaly_id
+        description: Stable anomaly finding key generated from the detector rule and natural record identifiers.
+        data_tests:
+          - not_null
+          - unique
+      - name: anomaly_grain
+        description: Grain of the anomaly finding.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - snapshot
+                  - vehicle_entity
+                  - trip_update_entity
+                  - trip_schedule_reference
+                  - trip_snapshot
+      - name: snapshot_folder
+        description: Captured realtime snapshot folder associated with the anomaly finding.
+        data_tests:
+          - not_null
+      - name: snapshot_timestamp_utc
+        description: UTC snapshot timestamp when available for the anomaly finding.
+      - name: route_id
+        description: Route identifier when the finding applies to a route, vehicle, or trip.
+      - name: trip_id
+        description: Trip identifier when the finding applies to a trip or schedule reference.
+      - name: entity_id
+        description: Realtime entity identifier when the finding applies to a feed entity.
+      - name: vehicle_id
+        description: Vehicle identifier when the finding applies to a vehicle or trip update.
+      - name: anomaly_type
+        description: Production anomaly type assigned by the deterministic rule.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - stale_realtime_timestamp
+                  - duplicate_trip_update_entity
+                  - unmatched_schedule_reference
+                  - missing_or_invalid_gps_coordinate
+                  - implausible_gps_or_speed
+                  - extreme_delay_outlier
+                  - feed_quality_warning
+                  - feed_freshness_issue
+      - name: anomaly_severity
+        description: Severity assigned by the deterministic detector rule.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - medium
+                  - high
+                  - critical
+      - name: anomaly_score
+        description: Rule-based anomaly score between 0.0 and 1.0.
+        data_tests:
+          - not_null
+      - name: anomaly_reason
+        description: Human-readable explanation of why the anomaly was detected.
+        data_tests:
+          - not_null
+      - name: detector_rule_id
+        description: Deterministic rule identifier that emitted the anomaly finding.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - rule_stale_vehicle_timestamp
+                  - rule_duplicate_trip_update_entity
+                  - rule_unmatched_schedule_reference
+                  - rule_missing_gps_coordinate
+                  - rule_implausible_gps_or_speed
+                  - rule_extreme_delay
+                  - rule_feed_quality_warning
+                  - rule_feed_freshness
+      - name: source_model
+        description: dbt model that supplied the records used by the detector rule.
+        data_tests:
+          - not_null
