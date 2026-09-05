@@ -25,20 +25,34 @@ st.markdown(
         padding-bottom: 2rem;
     }
     div[data-testid="stMetric"] {
-        border: 1px solid #d9e2ec;
+        border: 1px solid #334155;
         border-radius: 8px;
         padding: 0.7rem 0.8rem;
-        background: #fbfcfe;
+        background: #111827;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
+    }
+    div[data-testid="stMetric"] label,
+    div[data-testid="stMetric"] p {
+        color: #cbd5e1;
     }
     div[data-testid="stMetricValue"] {
         font-size: 1.45rem;
+        color: #f8fafc;
+        font-weight: 700;
+    }
+    div[data-testid="stMetricDelta"] {
+        color: #cbd5e1;
     }
     .note-panel {
-        border-left: 4px solid #3366cc;
-        background: #f7f9fc;
+        border-left: 4px solid #38bdf8;
+        background: #0f172a;
+        border-top: 1px solid #1e293b;
+        border-right: 1px solid #1e293b;
+        border-bottom: 1px solid #1e293b;
+        border-radius: 0 8px 8px 0;
         padding: 0.75rem 0.9rem;
         margin: 0.35rem 0 1rem 0;
-        color: #223;
+        color: #e2e8f0;
     }
     </style>
     """,
@@ -84,12 +98,60 @@ def format_minutes(value) -> str:
     return f"{float(value):.2f} min"
 
 
+def display_label(value) -> str:
+    if value is None or pd.isna(value):
+        return "n/a"
+    label = str(value).replace("_", " ")
+    replacements = {
+        "duplicate trip update entity": "duplicate trip updates",
+        "extreme delay outlier": "extreme delay outliers",
+        "feed quality warning": "feed quality warning",
+        "feed freshness issue": "freshness issue",
+        "active with both feeds": "both feeds",
+        "active vehicle only": "vehicle only",
+        "active trip updates only": "trip updates only",
+        "inactive or missing": "inactive/missing",
+        "early more than 5 min": "early >5 min",
+        "early 1 to 5 min": "early 1-5 min",
+        "late 5 to 15 min": "late 5-15 min",
+        "late 15 to 30 min": "late 15-30 min",
+        "late 30 to 60 min": "late 30-60 min",
+        "late over 60 min": "late >60 min",
+        "within expected interval": "within interval",
+        "insufficient data": "insufficient",
+        "highly variable": "high variable",
+    }
+    return replacements.get(label, label.title())
+
+
+def leading_labels(df: pd.DataFrame, label_column: str, limit: int = 2) -> str:
+    if df.empty:
+        return "no current findings"
+    labels = [display_label(value).lower() for value in df[label_column].head(limit)]
+    if len(labels) == 1:
+        return labels[0]
+    if len(labels) == 2:
+        return f"{labels[0]} and {labels[1]}"
+    return f"{', '.join(labels[:-1])}, and {labels[-1]}"
+
+
 def render_bar(df: pd.DataFrame, x: str, y: str, color: str | None = None, title: str | None = None):
     if df.empty:
         st.info("No records available for this view.")
         return
-    fig = px.bar(df, x=x, y=y, color=color, title=title)
-    fig.update_layout(height=360, margin=dict(l=10, r=10, t=45, b=10))
+    chart_df = df.copy()
+    display_x = f"{x}_display"
+    chart_df[display_x] = chart_df[x].map(display_label)
+    labels = {
+        display_x: x.replace("_", " ").title(),
+        y: y.replace("_", " ").title(),
+    }
+    if color:
+        labels[color] = color.replace("_", " ").title()
+    fig = px.bar(chart_df, x=display_x, y=y, color=color, title=title, labels=labels)
+    fig.update_xaxes(tickangle=-25, automargin=True)
+    fig.update_yaxes(automargin=True)
+    fig.update_layout(height=380, margin=dict(l=20, r=20, t=55, b=80), legend_title_text="")
     st.plotly_chart(fig, width="stretch")
 
 
@@ -97,12 +159,23 @@ def render_line(df: pd.DataFrame, x: str, y: str, color: str | None = None, titl
     if df.empty:
         st.info("No records available for this view.")
         return
-    fig = px.line(df, x=x, y=y, color=color, markers=True, title=title)
-    fig.update_layout(height=360, margin=dict(l=10, r=10, t=45, b=10))
+    fig = px.line(
+        df,
+        x=x,
+        y=y,
+        color=color,
+        markers=True,
+        title=title,
+        labels={x: x.replace("_", " ").title(), y: y.replace("_", " ").title()},
+    )
+    fig.update_xaxes(automargin=True)
+    fig.update_yaxes(automargin=True)
+    fig.update_layout(height=380, margin=dict(l=20, r=20, t=55, b=55), legend_title_text="")
     st.plotly_chart(fig, width="stretch")
 
 
 def render_overview():
+    st.caption("A compact readout of capture health, anomaly volume, delay performance, and static/realtime schedule alignment.")
     feed_snapshots = scalar("select count(*) from fct_feed_quality", 0)
     anomaly_findings = scalar("select count(*) from fct_anomaly_findings", 0)
     high_priority = scalar(
@@ -134,7 +207,24 @@ def render_overview():
     kpi_cols[1].metric("Anomaly findings", format_number(anomaly_findings))
     kpi_cols[2].metric("Critical/high findings", format_number(high_priority))
     kpi_cols[3].metric("Avg plausible delay", format_minutes(avg_delay))
-    kpi_cols[4].metric("Schedule match health", format_percent(match_rate))
+    kpi_cols[4].metric(
+        "Schedule match",
+        format_percent(match_rate),
+        help="Trip updates are matched against the version-aligned archived C6 static schedule, which is why this can cleanly reach 100%.",
+    )
+
+    anomaly_df = query(
+        """
+        select anomaly_type, count(*) as finding_count
+        from fct_anomaly_findings
+        group by 1
+        order by finding_count desc
+        """
+    )
+    st.caption(
+        f"Current run shows {format_percent(match_rate)} schedule matching against the aligned static feed; "
+        f"the leading anomaly categories are {leading_labels(anomaly_df, 'anomaly_type')}."
+    )
 
     st.markdown(
         '<div class="note-panel">TransitPulse is reading dbt-built marts from the local DuckDB warehouse. '
@@ -154,19 +244,12 @@ def render_overview():
         )
         render_bar(status_df, "feed_quality_status", "snapshot_count", title="Feed Quality Status")
     with right:
-        anomaly_df = query(
-            """
-            select anomaly_type, count(*) as finding_count
-            from fct_anomaly_findings
-            group by 1
-            order by finding_count desc
-            """
-        )
         render_bar(anomaly_df, "anomaly_type", "finding_count", title="Anomaly Findings by Type")
 
 
 def render_feed_quality():
     st.subheader("Feed Quality")
+    st.caption("Shows whether each captured snapshot has complete, fresh, and internally consistent realtime feed records.")
     trend_df = query(
         """
         select
@@ -200,9 +283,10 @@ def render_feed_quality():
 
 def render_anomalies():
     st.subheader("Anomaly Findings")
+    st.caption("Lists explainable findings generated by deterministic rules and summarizes synthetic benchmark performance.")
     st.markdown(
         '<div class="note-panel">The production anomaly mart uses deterministic rules. '
-        "Synthetic evaluation validates the same rule families, but the production output should be interpreted as explainable findings, not ML predictions.</div>",
+        "It is not an ML model. Synthetic evaluation validates the same rule families, while production output remains explainable findings.</div>",
         unsafe_allow_html=True,
     )
 
@@ -257,6 +341,7 @@ def render_anomalies():
 
 def render_route_activity():
     st.subheader("Route Activity")
+    st.caption("Compares realtime vehicle positions and trip updates by route so active and under-reported routes stand out.")
     status_df = query(
         """
         select route_activity_status, count(*) as route_snapshot_count
@@ -287,6 +372,7 @@ def render_route_activity():
 
 def render_on_time():
     st.subheader("On-Time Performance")
+    st.caption("Summarizes schedule-derived delay estimates for matched trips, with sanity bands separating plausible values from outliers.")
     cols = st.columns(3)
     on_time_rate = scalar(
         """
@@ -346,6 +432,7 @@ def render_on_time():
 
 def render_headway():
     st.subheader("Headway and Reliability")
+    st.caption("Approximates route-level vehicle spacing inside each snapshot using vehicle report timestamps.")
     st.markdown(
         '<div class="note-panel">Headway is currently a route-level vehicle timestamp-spread proxy within each snapshot. '
         "It is useful for spotting uneven realtime vehicle reporting, but it is not true stop-level passenger headway.</div>",
@@ -408,6 +495,7 @@ def main():
                 "Headway / Reliability",
             ],
         )
+        st.caption("Uses the local DuckDB warehouse generated by the ingestion and dbt pipeline. Raw captures and warehouse files are ignored by Git.")
 
     if not database_path.exists():
         st.error(f"DuckDB warehouse not found: {database_path}")
