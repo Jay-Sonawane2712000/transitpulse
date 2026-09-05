@@ -118,6 +118,16 @@ When using the all-feeds static download, static raw tables include a `source_fe
 
 The `dbt/` folder contains the dbt project configuration for transforming raw GTFS and GTFS-RT DuckDB tables into staging, intermediate, and mart layers. It connects to the local DuckDB warehouse at `data/warehouse/transitpulse.duckdb`.
 
+## Streamlit Dashboard
+
+Run the dashboard from the project root after the DuckDB warehouse has been loaded and dbt models have been built:
+
+```powershell
+streamlit run dashboard/app.py
+```
+
+The dashboard reads the validated dbt marts in `data/warehouse/transitpulse.duckdb` and shows feed quality, anomaly findings, route activity, on-time performance, and the current snapshot-based headway proxy.
+
 ## Data Policy
 
 Raw full data captures are not committed to the repository. Large captures should live under `data/raw/`, which is ignored by Git. Small synthetic or representative samples may be stored under `data/samples/`.
