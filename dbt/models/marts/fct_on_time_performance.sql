@@ -14,132 +14,6 @@ with trip_snapshot_base as (
 
 ),
 
-realtime_stop_updates as (
-
-    select
-        snapshot_folder,
-        snapshot_timestamp_utc,
-        entity_id,
-        trip_id,
-        route_id,
-        vehicle_id,
-        stop_id,
-        stop_sequence,
-        arrival_time_utc,
-        arrival_delay_seconds,
-        departure_time_utc,
-        departure_delay_seconds
-    from {{ ref('int_realtime_stop_time_updates') }}
-
-),
-
-scheduled_stop_times as (
-
-    select
-        trip_id,
-        stop_id,
-        stop_sequence,
-        try_cast(split_part(arrival_time, ':', 1) as integer) * 3600
-            + try_cast(split_part(arrival_time, ':', 2) as integer) * 60
-            + try_cast(split_part(arrival_time, ':', 3) as integer) as arrival_seconds_after_midnight,
-        try_cast(split_part(departure_time, ':', 1) as integer) * 3600
-            + try_cast(split_part(departure_time, ':', 2) as integer) * 60
-            + try_cast(split_part(departure_time, ':', 3) as integer) as departure_seconds_after_midnight
-    from {{ ref('stg_stop_times') }}
-    where trip_id in (
-        select distinct trip_id
-        from realtime_stop_updates
-    )
-
-),
-
-stop_level_delays as (
-
-    select
-        realtime_stop_updates.snapshot_folder,
-        realtime_stop_updates.snapshot_timestamp_utc,
-        realtime_stop_updates.trip_id,
-        realtime_stop_updates.arrival_time_utc,
-        realtime_stop_updates.departure_time_utc,
-        realtime_stop_updates.arrival_delay_seconds,
-        realtime_stop_updates.departure_delay_seconds,
-        coalesce(
-            scheduled_by_sequence.arrival_seconds_after_midnight,
-            scheduled_by_stop.arrival_seconds_after_midnight
-        ) as arrival_seconds_after_midnight,
-        coalesce(
-            scheduled_by_sequence.departure_seconds_after_midnight,
-            scheduled_by_stop.departure_seconds_after_midnight
-        ) as departure_seconds_after_midnight,
-        scheduled_by_sequence.trip_id is not null
-            or scheduled_by_stop.trip_id is not null as matched_scheduled_stop,
-        case
-            when coalesce(
-                scheduled_by_sequence.trip_id,
-                scheduled_by_stop.trip_id
-            ) is not null
-            and coalesce(
-                scheduled_by_sequence.arrival_seconds_after_midnight,
-                scheduled_by_sequence.departure_seconds_after_midnight,
-                scheduled_by_stop.arrival_seconds_after_midnight,
-                scheduled_by_stop.departure_seconds_after_midnight
-            ) is null
-                then true
-            else false
-        end as schedule_time_parse_failed,
-        case
-            when realtime_stop_updates.arrival_delay_seconds is not null
-                then cast(realtime_stop_updates.arrival_delay_seconds as double) / 60.0
-            when realtime_stop_updates.arrival_time_utc is not null
-                and coalesce(
-                    scheduled_by_sequence.arrival_seconds_after_midnight,
-                    scheduled_by_stop.arrival_seconds_after_midnight
-                ) is not null
-                then date_diff(
-                    'second',
-                    date_trunc('day', realtime_stop_updates.arrival_time_utc - interval 4 hours)
-                        + interval 4 hours
-                        + coalesce(
-                            scheduled_by_sequence.arrival_seconds_after_midnight,
-                            scheduled_by_stop.arrival_seconds_after_midnight
-                        ) * interval 1 second,
-                    realtime_stop_updates.arrival_time_utc
-                ) / 60.0
-        end as estimated_arrival_delay_minutes,
-        case
-            when realtime_stop_updates.departure_delay_seconds is not null
-                then cast(realtime_stop_updates.departure_delay_seconds as double) / 60.0
-            when realtime_stop_updates.departure_time_utc is not null
-                and coalesce(
-                    scheduled_by_sequence.departure_seconds_after_midnight,
-                    scheduled_by_stop.departure_seconds_after_midnight
-                ) is not null
-                then date_diff(
-                    'second',
-                    date_trunc('day', realtime_stop_updates.departure_time_utc - interval 4 hours)
-                        + interval 4 hours
-                        + coalesce(
-                            scheduled_by_sequence.departure_seconds_after_midnight,
-                            scheduled_by_stop.departure_seconds_after_midnight
-                        ) * interval 1 second,
-                    realtime_stop_updates.departure_time_utc
-                ) / 60.0
-        end as estimated_departure_delay_minutes
-    from realtime_stop_updates
-    left join scheduled_stop_times as scheduled_by_sequence
-        on realtime_stop_updates.trip_id = scheduled_by_sequence.trip_id
-        and realtime_stop_updates.stop_sequence = scheduled_by_sequence.stop_sequence
-        and (
-            realtime_stop_updates.stop_id is null
-            or realtime_stop_updates.stop_id = scheduled_by_sequence.stop_id
-        )
-    left join scheduled_stop_times as scheduled_by_stop
-        on realtime_stop_updates.trip_id = scheduled_by_stop.trip_id
-        and realtime_stop_updates.stop_sequence is null
-        and realtime_stop_updates.stop_id = scheduled_by_stop.stop_id
-
-),
-
 trip_delay_summary as (
 
     select
@@ -149,17 +23,17 @@ trip_delay_summary as (
         sum(case when matched_scheduled_stop then 1 else 0 end) as matched_stop_update_count,
         min(coalesce(arrival_time_utc, departure_time_utc)) as first_realtime_stop_time_utc,
         max(coalesce(departure_time_utc, arrival_time_utc)) as last_realtime_stop_time_utc,
-        avg(coalesce(estimated_arrival_delay_minutes, estimated_departure_delay_minutes)) as avg_estimated_delay_minutes,
-        max(coalesce(estimated_arrival_delay_minutes, estimated_departure_delay_minutes)) as max_estimated_delay_minutes,
-        min(coalesce(estimated_arrival_delay_minutes, estimated_departure_delay_minutes)) as min_estimated_delay_minutes,
+        avg(estimated_delay_minutes) as avg_estimated_delay_minutes,
+        max(estimated_delay_minutes) as max_estimated_delay_minutes,
+        min(estimated_delay_minutes) as min_estimated_delay_minutes,
         sum(
             case
-                when coalesce(estimated_arrival_delay_minutes, estimated_departure_delay_minutes) is not null then 1
+                when estimated_delay_minutes is not null then 1
                 else 0
             end
         ) as estimated_delay_stop_count,
         sum(case when schedule_time_parse_failed then 1 else 0 end) as schedule_time_parse_issue_count
-    from stop_level_delays
+    from {{ ref('int_stop_time_schedule_vs_actual') }}
     group by 1, 2
 
 )

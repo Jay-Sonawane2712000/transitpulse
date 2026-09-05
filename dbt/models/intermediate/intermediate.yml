@@ -30,7 +30,7 @@ models:
                   - unmatched_realtime_trip
 
   - name: int_realtime_stop_time_updates
-    description: Normalized GTFS-RT stop_time_updates, one row per realtime stop update per trip and snapshot, preserving arrival/departure times and delay fields exactly where available.
+    description: Materialized normalized GTFS-RT stop_time_updates, one row per realtime stop update per trip and snapshot, preserving arrival/departure times and delay fields exactly where available.
     columns:
       - name: snapshot_folder
         description: Folder containing the captured realtime snapshot.
@@ -72,3 +72,53 @@ models:
         description: Boolean indicator that the realtime stop update included an explicit arrival_delay.
       - name: stop_update_has_departure_delay
         description: Boolean indicator that the realtime stop update included an explicit departure_delay.
+
+  - name: int_scheduled_stop_times_normalized
+    description: Materialized subset of scheduled GTFS stop_times for realtime-observed trips, with HH:MM:SS schedule times converted to seconds after service-day midnight, including hours greater than 24.
+    columns:
+      - name: trip_id
+        description: Scheduled GTFS trip identifier observed in the realtime stop-time update layer.
+        data_tests:
+          - not_null
+      - name: stop_id
+        description: Scheduled GTFS stop identifier.
+        data_tests:
+          - not_null
+      - name: stop_sequence
+        description: Scheduled stop sequence within the trip.
+        data_tests:
+          - not_null
+      - name: arrival_seconds_after_midnight
+        description: Scheduled arrival time converted to seconds after service-day midnight.
+      - name: departure_seconds_after_midnight
+        description: Scheduled departure time converted to seconds after service-day midnight.
+
+  - name: int_stop_time_schedule_vs_actual
+    description: Materialized stop-level schedule-vs-realtime comparison, joining normalized realtime stop updates to scheduled stop times and calculating schedule-derived delay minutes where supported.
+    columns:
+      - name: snapshot_folder
+        description: Folder containing the captured realtime snapshot.
+        data_tests:
+          - not_null
+      - name: snapshot_timestamp_utc
+        description: UTC timestamp when the realtime snapshot was captured.
+        data_tests:
+          - not_null
+      - name: entity_id
+        description: GTFS-RT trip update entity identifier.
+        data_tests:
+          - not_null
+      - name: trip_id
+        description: Realtime trip identifier joined to scheduled GTFS stop times.
+        data_tests:
+          - not_null
+      - name: matched_scheduled_stop
+        description: Boolean indicator that the realtime stop update matched a scheduled stop time by trip_id, stop_sequence, and stop_id guard where available.
+        data_tests:
+          - not_null
+      - name: schedule_time_parse_failed
+        description: Boolean indicator that a scheduled stop match existed but neither scheduled arrival nor departure time could be parsed.
+        data_tests:
+          - not_null
+      - name: estimated_delay_minutes
+        description: Stop-level estimated delay in minutes, using explicit GTFS-RT delay fields when available and otherwise realtime epoch timestamps minus scheduled stop times.

@@ -1,3 +1,5 @@
+{{ config(materialized='table') }}
+
 select
     trip_updates.snapshot_folder,
     trip_updates.snapshot_timestamp_utc,
