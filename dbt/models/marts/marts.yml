@@ -241,3 +241,44 @@ models:
                   - late_15_to_30_min
                   - late_30_to_60_min
                   - late_over_60_min
+
+  - name: fct_headway
+    description: Route-level vehicle spacing fact table with one row per route_id and snapshot_folder, using vehicle position timestamps as a snapshot-based reliability proxy rather than true stop-level headway.
+    columns:
+      - name: snapshot_folder
+        description: Timestamped raw realtime snapshot folder.
+        data_tests:
+          - not_null
+      - name: snapshot_timestamp_utc
+        description: UTC timestamp when the realtime snapshot was captured.
+        data_tests:
+          - not_null
+      - name: route_id
+        description: Realtime route identifier for the vehicle positions in the snapshot.
+        data_tests:
+          - not_null
+      - name: vehicle_count
+        description: Count of vehicle position records observed for the route in the snapshot.
+      - name: distinct_vehicle_count
+        description: Count of distinct vehicle IDs observed for the route in the snapshot.
+      - name: observed_vehicle_sequence_count
+        description: Count of vehicle position records with timestamps available for sequencing within the route and snapshot.
+      - name: avg_vehicle_spacing_minutes
+        description: Average time gap in minutes between consecutive vehicle timestamps for the route in the snapshot; null when fewer than two vehicles are observed.
+      - name: min_vehicle_spacing_minutes
+        description: Minimum time gap in minutes between consecutive vehicle timestamps for the route in the snapshot; null when fewer than two vehicles are observed.
+      - name: max_vehicle_spacing_minutes
+        description: Maximum time gap in minutes between consecutive vehicle timestamps for the route in the snapshot; null when fewer than two vehicles are observed.
+      - name: headway_variance_minutes
+        description: Standard deviation in minutes of consecutive vehicle timestamp gaps within the route and snapshot; this is a snapshot-based reliability proxy.
+      - name: headway_reliability_status
+        description: Reliability bucket based on distinct vehicle count and variation in vehicle timestamp spacing.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - insufficient_data
+                  - stable
+                  - variable
+                  - highly_variable
