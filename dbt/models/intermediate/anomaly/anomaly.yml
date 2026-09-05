@@ -89,3 +89,104 @@ models:
         description: Human-readable explanation of why the evaluation row is normal or anomalous.
         data_tests:
           - not_null
+
+  - name: int_rule_based_anomaly_detection
+    description: Deterministic rule-based anomaly detector predictions over the synthetic anomaly evaluation dataset.
+    columns:
+      - name: evaluation_record_id
+        description: Stable evaluation row identifier carried from the labeled evaluation dataset.
+        data_tests:
+          - not_null
+          - unique
+      - name: predicted_is_anomaly
+        description: Boolean detector prediction indicating whether the row crossed any anomaly rule threshold.
+        data_tests:
+          - not_null
+      - name: predicted_anomaly_type
+        description: Predicted anomaly type from the first matching deterministic detector rule, or normal when no rule fires.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - normal
+                  - stale_vehicle_position_timestamp
+                  - gps_jump_or_implausible_speed
+                  - duplicate_trip_update_entity
+                  - missing_or_unmatched_schedule_reference
+                  - late_or_extreme_delay_outlier
+      - name: predicted_severity
+        description: Predicted severity assigned by the detector rule.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - none
+                  - medium
+                  - high
+                  - critical
+      - name: detector_rule_id
+        description: Identifier for the deterministic rule responsible for the prediction.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - rule_no_anomaly_detected
+                  - rule_stale_vehicle_timestamp
+                  - rule_implausible_gps_or_speed
+                  - rule_duplicate_trip_update_candidate
+                  - rule_unmatched_schedule_reference
+                  - rule_extreme_delay
+      - name: detection_reason
+        description: Human-readable explanation of the detector rule result.
+        data_tests:
+          - not_null
+      - name: is_synthetic_anomaly
+        description: Ground-truth boolean label carried from the evaluation dataset.
+        data_tests:
+          - not_null
+      - name: synthetic_anomaly_type
+        description: Ground-truth anomaly type carried from the evaluation dataset.
+        data_tests:
+          - not_null
+
+  - name: int_anomaly_detection_metrics
+    description: Evaluation metrics comparing deterministic anomaly detector predictions against synthetic ground-truth labels overall and by anomaly type.
+    columns:
+      - name: metric_scope
+        description: Metric grain, either overall binary anomaly detection or per-anomaly-type classification.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - overall
+                  - by_anomaly_type
+      - name: anomaly_type
+        description: Anomaly type represented by the metric row.
+        data_tests:
+          - not_null
+      - name: true_positive
+        description: Count of rows correctly predicted positive for the metric scope.
+        data_tests:
+          - not_null
+      - name: false_positive
+        description: Count of rows incorrectly predicted positive for the metric scope.
+        data_tests:
+          - not_null
+      - name: false_negative
+        description: Count of rows incorrectly predicted negative for the metric scope.
+        data_tests:
+          - not_null
+      - name: true_negative
+        description: Count of rows correctly predicted negative for the metric scope.
+        data_tests:
+          - not_null
+      - name: precision
+        description: Detector precision for the metric scope.
+      - name: recall
+        description: Detector recall for the metric scope.
+      - name: f1_score
+        description: Harmonic mean of detector precision and recall for the metric scope.
