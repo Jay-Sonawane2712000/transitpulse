@@ -193,7 +193,11 @@ def load_static_tables(
     return counts
 
 
-def list_snapshot_dirs(realtime_dir: Path) -> list[Path]:
+def list_snapshot_dirs(
+    realtime_dir: Path,
+    snapshot_start: str | None = None,
+    snapshot_end: str | None = None,
+) -> list[Path]:
     if not realtime_dir.exists():
         return []
 
@@ -201,6 +205,8 @@ def list_snapshot_dirs(realtime_dir: Path) -> list[Path]:
         path
         for path in realtime_dir.iterdir()
         if path.is_dir() and path.name.startswith("snapshot_")
+        and (snapshot_start is None or path.name >= snapshot_start)
+        and (snapshot_end is None or path.name <= snapshot_end)
     )
 
 
@@ -233,10 +239,15 @@ def records_to_dataframe(records: list[dict[str, Any]], snapshot_folder: str) ->
     return pd.DataFrame(prepared_records)
 
 
-def collect_realtime_records(realtime_dir: Path, filename: str) -> pd.DataFrame:
+def collect_realtime_records(
+    realtime_dir: Path,
+    filename: str,
+    snapshot_start: str | None = None,
+    snapshot_end: str | None = None,
+) -> pd.DataFrame:
     dataframes: list[pd.DataFrame] = []
 
-    for snapshot_dir in list_snapshot_dirs(realtime_dir):
+    for snapshot_dir in list_snapshot_dirs(realtime_dir, snapshot_start, snapshot_end):
         records = read_json_records(snapshot_dir / filename)
         if records:
             dataframes.append(records_to_dataframe(records, snapshot_dir.name))
@@ -250,6 +261,8 @@ def collect_realtime_records(realtime_dir: Path, filename: str) -> pd.DataFrame:
 def load_realtime_tables(
     connection: duckdb.DuckDBPyConnection,
     realtime_dir: Path,
+    snapshot_start: str | None = None,
+    snapshot_end: str | None = None,
 ) -> dict[str, int]:
     realtime_sources = {
         "raw_vehicle_positions": "vehicle_positions.json",
@@ -258,7 +271,12 @@ def load_realtime_tables(
     counts: dict[str, int] = {}
 
     for table_name, filename in realtime_sources.items():
-        dataframe = collect_realtime_records(realtime_dir, filename)
+        dataframe = collect_realtime_records(
+            realtime_dir,
+            filename,
+            snapshot_start=snapshot_start,
+            snapshot_end=snapshot_end,
+        )
         if dataframe.empty and len(dataframe.columns) == 0:
             counts[table_name] = create_empty_table_replace(
                 connection,
@@ -275,13 +293,22 @@ def load_raw_data(
     static_dir: Path,
     realtime_dir: Path,
     database_path: Path,
+    snapshot_start: str | None = None,
+    snapshot_end: str | None = None,
 ) -> dict[str, int]:
     ensure_database_parent(database_path)
 
     with duckdb.connect(str(database_path)) as connection:
         table_counts = {}
         table_counts.update(load_static_tables(connection, static_dir))
-        table_counts.update(load_realtime_tables(connection, realtime_dir))
+        table_counts.update(
+            load_realtime_tables(
+                connection,
+                realtime_dir,
+                snapshot_start=snapshot_start,
+                snapshot_end=snapshot_end,
+            )
+        )
 
     return table_counts
 
@@ -297,6 +324,14 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--static-dir", default=str(DEFAULT_STATIC_DIR))
     parser.add_argument("--realtime-dir", default=str(DEFAULT_REALTIME_DIR))
+    parser.add_argument(
+        "--snapshot-start",
+        help="Optional inclusive first snapshot folder name, such as snapshot_20260905_044611.",
+    )
+    parser.add_argument(
+        "--snapshot-end",
+        help="Optional inclusive last snapshot folder name, such as snapshot_20260906_004555.",
+    )
     parser.add_argument("--database-path", default=str(DEFAULT_DATABASE_PATH))
     return parser.parse_args()
 
@@ -311,6 +346,8 @@ def main() -> None:
         static_dir=static_dir,
         realtime_dir=realtime_dir,
         database_path=database_path,
+        snapshot_start=args.snapshot_start,
+        snapshot_end=args.snapshot_end,
     )
     static_layout, _ = detect_static_feed_sources(static_dir)
     feeds_loaded = get_loaded_feed_names(static_dir)
@@ -318,6 +355,11 @@ def main() -> None:
     print("Loaded raw GTFS data into DuckDB.")
     print(f"Static layout detected: {static_layout}")
     print(f"Static feeds loaded: {', '.join(feeds_loaded) if feeds_loaded else 'none'}")
+    if args.snapshot_start or args.snapshot_end:
+        print(
+            "Realtime snapshot filter: "
+            f"{args.snapshot_start or 'first'} to {args.snapshot_end or 'last'}"
+        )
     for table_name in sorted(table_counts):
         print(f"{table_name}: {table_counts[table_name]} rows")
     print(f"Database: {database_path}")

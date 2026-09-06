@@ -212,6 +212,74 @@ def test_collect_realtime_records_adds_snapshot_folder_and_json_stop_updates():
         remove_test_workspace(workspace)
 
 
+def test_list_snapshot_dirs_can_filter_inclusive_snapshot_range():
+    workspace = make_test_workspace()
+    try:
+        realtime_dir = workspace / "realtime"
+        for snapshot_name in [
+            "snapshot_20260905_044000",
+            "snapshot_20260905_044611",
+            "snapshot_20260905_045111",
+            "snapshot_20260906_004555",
+            "snapshot_20260906_005000",
+        ]:
+            (realtime_dir / snapshot_name).mkdir(parents=True)
+
+        snapshot_dirs = load_raw_to_duckdb.list_snapshot_dirs(
+            realtime_dir,
+            snapshot_start="snapshot_20260905_044611",
+            snapshot_end="snapshot_20260906_004555",
+        )
+
+        assert [path.name for path in snapshot_dirs] == [
+            "snapshot_20260905_044611",
+            "snapshot_20260905_045111",
+            "snapshot_20260906_004555",
+        ]
+    finally:
+        remove_test_workspace(workspace)
+
+
+def test_collect_realtime_records_uses_snapshot_range_filter():
+    workspace = make_test_workspace()
+    try:
+        realtime_dir = workspace / "realtime"
+        snapshots = {
+            "snapshot_20260905_044000": "before",
+            "snapshot_20260905_044611": "included-start",
+            "snapshot_20260905_045111": "included-middle",
+            "snapshot_20260906_004555": "included-end",
+            "snapshot_20260906_005000": "after",
+        }
+        for snapshot_name, entity_id in snapshots.items():
+            snapshot_dir = realtime_dir / snapshot_name
+            snapshot_dir.mkdir(parents=True)
+            (snapshot_dir / "vehicle_positions.json").write_text(
+                json.dumps([{"entity_id": entity_id, "route_id": "M20"}]),
+                encoding="utf-8",
+            )
+
+        dataframe = load_raw_to_duckdb.collect_realtime_records(
+            realtime_dir,
+            "vehicle_positions.json",
+            snapshot_start="snapshot_20260905_044611",
+            snapshot_end="snapshot_20260906_004555",
+        )
+
+        assert dataframe["entity_id"].tolist() == [
+            "included-start",
+            "included-middle",
+            "included-end",
+        ]
+        assert dataframe["snapshot_folder"].tolist() == [
+            "snapshot_20260905_044611",
+            "snapshot_20260905_045111",
+            "snapshot_20260906_004555",
+        ]
+    finally:
+        remove_test_workspace(workspace)
+
+
 def test_load_realtime_tables_creates_empty_tables_without_snapshots():
     workspace = make_test_workspace()
     try:
