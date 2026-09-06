@@ -154,19 +154,21 @@ Validated row counts:
 Schedule alignment:
 
 - Schedule match health: 98.95%
-- This reflects matching the 20-hour realtime capture against version-aligned archived C6 static GTFS feeds.
+- This reflects the global row-level match rate in `int_trip_schedule_vs_actual`, matching the 20-hour realtime trip updates against version-aligned archived C6 static GTFS feeds.
+- The dashboard's 99.1% Match health KPI is calculated from `fct_on_time_performance`, a narrower trip-observation mart used for delay analysis; both rates are valid at their respective grains.
 - A dbt regression guard fails if schedule match rate drops below 95%.
 
 Operational metrics from the 20-hour validation capture:
 
 - Average plausible estimated delay: about 2.19 minutes
+- On-time rate excluding unknowns: about 50.03%, displayed as 50.0% in the dashboard.
 - Production anomaly findings:
   - `duplicate_trip_update_entity`: 10,641
   - `unmatched_schedule_reference`: 9,010
   - `extreme_delay_outlier`: 7,768
   - `feed_quality_warning`: 240
 
-The clean 20-hour refresh processed more than 1M realtime records across 240 snapshots and maintained a 98.95% trip-to-schedule match rate after archived feed alignment. The largest finding categories were duplicate trip update entities, unmatched schedule references, and extreme delay outliers. These counts identify records that need review; they do not by themselves prove a single operational root cause.
+The clean 20-hour refresh processed more than 1M realtime records across 240 snapshots and maintained a 98.95% trip-to-schedule match rate after archived feed alignment. It also showed an approximately even split between on-time and not-on-time trip observations within the schedule-derived delay mart. The largest finding categories were duplicate trip update entities, unmatched schedule references, and extreme delay outliers. These counts identify records that need review; they do not by themselves prove a single operational root cause.
 
 ## Anomaly Detection
 
@@ -199,7 +201,7 @@ This benchmark confirms the deterministic rules correctly catch the injected ano
 - The 98.95% schedule match depends on using archived C6 static GTFS feeds aligned to the realtime capture.
 - Current public MTA static feeds had a later D6 rating and did not match the September 2 C6 realtime trip IDs.
 - On-time performance uses schedule-derived delay estimates from realtime stop-time updates and static stop times.
-- Headway is currently an approximate route-level vehicle timestamp-spread proxy, not true stop-level passenger headway.
+- Headway is currently an approximate route-level vehicle timestamp-spread proxy, not true stop-level passenger headway. The dashboard's average spacing KPI is a broad aggregate across route-snapshot rows, while the detail table highlights selected high-variance route snapshots.
 - Anomaly detection is deterministic and rule-based, not ML.
 - Raw data and the DuckDB warehouse are local-only and not committed.
 
