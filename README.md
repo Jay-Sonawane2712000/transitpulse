@@ -2,7 +2,16 @@
 
 TransitPulse is a Bus Service Data Quality & Delay Intelligence Platform for NYC MTA bus data. It captures static GTFS schedules and GTFS-Realtime snapshots, loads them into DuckDB, models validated metrics with dbt, and presents feed quality, delay, route activity, headway proxy, and anomaly findings in a Streamlit dashboard.
 
-The project is designed as a portfolio-grade analytics engineering build: reproducible local ingestion, documented warehouse layers, tested transformations, and an honest dashboard that separates validated metrics from known limitations.
+The project is designed as a portfolio-grade analytics engineering build: reproducible local ingestion, documented warehouse layers, tested transformations, and a dashboard that clearly separates validated metrics from documented limitations.
+
+## At A Glance
+
+- 20-hour GTFS-Realtime capture used for the final dashboard refresh.
+- 1M+ realtime records processed: 360,260 vehicle positions and 651,169 trip updates.
+- 98.95% static/realtime schedule match after archived C6 feed alignment.
+- 160 dbt tests passing across source, staging, intermediate, mart, and anomaly layers.
+
+These figures describe the local validation dataset, not a long-term production deployment.
 
 ## Problem
 
@@ -16,6 +25,22 @@ Transit riders and transit operations teams rely on realtime bus data, but those
 - Detection: deterministic rules score synthetic benchmark records and production anomaly findings.
 - Dashboard: Streamlit and Plotly read the dbt marts from DuckDB for interactive review.
 - Testing: pytest validates ingestion helpers; dbt tests validate source, staging, intermediate, mart, and anomaly logic.
+
+```text
+GTFS static feeds + GTFS-Realtime snapshots
+                 |
+                 v
+Python ingestion scripts
+                 |
+                 v
+DuckDB raw warehouse
+                 |
+                 v
+dbt staging -> intermediate -> marts + tests
+                 |
+                 v
+Streamlit dashboard
+```
 
 ## Tech Stack
 
@@ -41,7 +66,7 @@ Transit riders and transit operations teams rely on realtime bus data, but those
 - Feed quality, route activity, on-time performance, dimensions, headway proxy, and anomaly findings marts.
 - Synthetic anomaly evaluation dataset with ground-truth labels.
 - Explainable rule-based anomaly detector and production anomaly findings mart.
-- Streamlit dashboard for recruiter/interviewer review.
+- Streamlit dashboard summarizing feed health, delay, and anomaly findings at a glance.
 
 ## Data Pipeline Flow
 
@@ -59,13 +84,13 @@ Raw captures and DuckDB database files are intentionally ignored by Git.
 - Staging: typed and standardized route, trip, stop, stop time, vehicle position, and trip update models.
 - Intermediate: schedule-vs-actual alignment, normalized realtime stop-time updates, stop-level delay calculations, feed quality checks, and anomaly evaluation logic.
 - Marts:
-  - `dim_route`
-  - `dim_stop`
-  - `fct_feed_quality`
-  - `fct_route_realtime_activity`
-  - `fct_on_time_performance`
-  - `fct_headway`
-  - `fct_anomaly_findings`
+  - `dim_route`: dimension-level, one row per `source_feed` + `route_id`.
+  - `dim_stop`: dimension-level, one row per `source_feed` + `stop_id`.
+  - `fct_feed_quality`: snapshot-level, one row per captured `snapshot_folder`.
+  - `fct_route_realtime_activity`: route-snapshot-level, one row per `route_id` per `snapshot_folder`.
+  - `fct_on_time_performance`: trip-observation-level, one row per `trip_id` per `snapshot_folder`.
+  - `fct_headway`: route-snapshot-level proxy, one row per `route_id` per `snapshot_folder`.
+  - `fct_anomaly_findings`: anomaly-finding-level, one row per detected anomaly or quality finding.
 
 ## Dashboard Overview
 
@@ -79,6 +104,8 @@ The Streamlit dashboard includes:
 - Headway/reliability view labeled as an approximate vehicle timestamp-spread proxy.
 
 ## Dashboard Screenshots
+
+Five dashboard screenshots are included below. A Route Activity screenshot can be added later if a separate route-focused portfolio view is needed.
 
 ### Executive Overview
 
@@ -138,6 +165,8 @@ Operational metrics from the 20-hour validation capture:
   - `unmatched_schedule_reference`: 9,010
   - `extreme_delay_outlier`: 7,768
   - `feed_quality_warning`: 240
+
+The clean 20-hour refresh processed more than 1M realtime records across 240 snapshots and maintained a 98.95% trip-to-schedule match rate after archived feed alignment. The largest finding categories were duplicate trip update entities, unmatched schedule references, and extreme delay outliers. These counts identify records that need review; they do not by themselves prove a single operational root cause.
 
 ## Anomaly Detection
 
@@ -218,6 +247,8 @@ Load raw files into DuckDB:
 ```powershell
 python ingestion/load_raw_to_duckdb.py
 ```
+
+Reproducibility note: the next two commands reproduce the original author's C6-aligned 20-hour refresh. They require local gitignored archive and capture files under `data/raw/static_archives/c6_20260902` and `data/raw/realtime/`. Fresh clones should run their own capture and use the plain loader command unless those inputs are recreated locally.
 
 For the September 2 C6 validation dataset, load the archived static feeds instead of the current D6 static feeds:
 
