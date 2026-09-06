@@ -278,7 +278,7 @@ def render_feed_quality():
     )
 
     render_line(trend_df, "snapshot_timestamp_utc", "duplicate_trip_update_rate", title="Duplicate Trip Update Rate by Snapshot")
-    st.dataframe(trend_df, width="stretch", hide_index=True)
+    st.dataframe(trend_df, use_container_width=True, hide_index=True)
 
 
 def render_anomalies():
@@ -316,7 +316,7 @@ def render_anomalies():
         """
     )
     st.markdown("#### Detector Benchmark")
-    st.dataframe(benchmark_df, width="stretch", hide_index=True)
+    st.dataframe(benchmark_df, use_container_width=True, hide_index=True)
 
     top_findings = query(
         """
@@ -336,7 +336,7 @@ def render_anomalies():
         """
     )
     st.markdown("#### Top Findings")
-    st.dataframe(top_findings, width="stretch", hide_index=True)
+    st.dataframe(top_findings, use_container_width=True, hide_index=True)
 
 
 def render_route_activity():
@@ -367,7 +367,7 @@ def render_route_activity():
         """
     )
     render_bar(top_routes.head(10), "route_id", "total_realtime_records", title="Top 10 Routes by Realtime Records")
-    st.dataframe(top_routes, width="stretch", hide_index=True)
+    st.dataframe(top_routes, use_container_width=True, hide_index=True)
 
 
 def render_on_time():
@@ -427,7 +427,7 @@ def render_on_time():
         """
     )
     render_bar(top_delayed.head(10), "route_id", "avg_estimated_delay_minutes", title="Top 10 Routes by Avg Plausible Delay")
-    st.dataframe(top_delayed, width="stretch", hide_index=True)
+    st.dataframe(top_delayed, use_container_width=True, hide_index=True)
 
 
 def render_headway():
@@ -473,7 +473,7 @@ def render_headway():
         limit 25
         """
     )
-    st.dataframe(variable_routes, width="stretch", hide_index=True)
+    st.dataframe(variable_routes, use_container_width=True, hide_index=True)
 
 
 def main():
