@@ -205,12 +205,12 @@ def render_overview():
     kpi_cols = st.columns(5)
     kpi_cols[0].metric("Feed snapshots", format_number(feed_snapshots))
     kpi_cols[1].metric("Anomaly findings", format_number(anomaly_findings))
-    kpi_cols[2].metric("Critical/high findings", format_number(high_priority))
+    kpi_cols[2].metric("Priority findings", format_number(high_priority))
     kpi_cols[3].metric("Avg plausible delay", format_minutes(avg_delay))
     kpi_cols[4].metric(
-        "Schedule match",
+        "Match health",
         format_percent(match_rate),
-        help="Trip updates are matched against the version-aligned archived C6 static schedule, which is why this can cleanly reach 100%.",
+        help="Trip updates are matched against the version-aligned archived C6 static schedule for this capture window.",
     )
 
     anomaly_df = query(

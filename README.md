@@ -94,36 +94,37 @@ Final dbt validation:
 - `dbt run`: 26 models built
 - `dbt test`: 160 tests passed
 
-Short validation capture:
+Final dashboard refresh capture:
 
-- 8 realtime snapshots
-- Capture window: 2026-09-02 23:31:19 to 2026-09-03 00:33:42
-- Duration: about 62 minutes
+- 240 realtime snapshots
+- Capture window: 2026-09-05 04:46:11 UTC to 2026-09-06 00:45:55 UTC
+- Duration: about 20 hours
 
-Important: current metrics come from this short 8-snapshot validation capture, not a full-day production sample.
+Important: current metrics come from this 20-hour validation capture, not a full long-term production sample.
 
 Validated row counts:
 
-- `fct_feed_quality`: 8
-- `fct_route_realtime_activity`: 2,546
-- `fct_on_time_performance`: 29,194
-- `fct_headway`: 2,527
-- `fct_anomaly_findings`: 678
+- `raw_vehicle_positions`: 360,260
+- `raw_trip_updates`: 651,169
+- `fct_feed_quality`: 240
+- `fct_route_realtime_activity`: 57,369
+- `fct_on_time_performance`: 640,225
+- `fct_anomaly_findings`: 27,659
 
 Schedule alignment:
 
-- Schedule match health: 100.0%
-- This reflects matching September 2 realtime data against version-aligned archived C6 static GTFS feeds.
+- Schedule match health: 98.95%
+- This reflects matching the 20-hour realtime capture against version-aligned archived C6 static GTFS feeds.
 - A dbt regression guard fails if schedule match rate drops below 95%.
 
-Operational metrics from the short validation capture:
+Operational metrics from the 20-hour validation capture:
 
-- Average plausible estimated delay: about 3.18 minutes
+- Average plausible estimated delay: about 2.19 minutes
 - Production anomaly findings:
-  - `duplicate_trip_update_entity`: 565
-  - `extreme_delay_outlier`: 104
-  - `feed_quality_warning`: 8
-  - `feed_freshness_issue`: 1
+  - `duplicate_trip_update_entity`: 10,641
+  - `unmatched_schedule_reference`: 9,010
+  - `extreme_delay_outlier`: 7,768
+  - `feed_quality_warning`: 240
 
 ## Anomaly Detection
 
@@ -152,8 +153,8 @@ This benchmark confirms the deterministic rules correctly catch the injected ano
 
 ## Important Caveats
 
-- Current dashboard metrics are based on a short validation capture, not a 24-hour or 48-hour dataset.
-- The 100.0% schedule match depends on using archived C6 static GTFS feeds aligned to the September 2 realtime snapshots.
+- Current dashboard metrics are based on a 20-hour validation capture, not a full long-term production sample.
+- The 98.95% schedule match depends on using archived C6 static GTFS feeds aligned to the realtime capture.
 - Current public MTA static feeds had a later D6 rating and did not match the September 2 C6 realtime trip IDs.
 - On-time performance uses schedule-derived delay estimates from realtime stop-time updates and static stop times.
 - Headway is currently an approximate route-level vehicle timestamp-spread proxy, not true stop-level passenger headway.
@@ -211,6 +212,12 @@ For the September 2 C6 validation dataset, load the archived static feeds instea
 python ingestion/load_raw_to_duckdb.py --static-dir data/raw/static_archives/c6_20260902
 ```
 
+For the clean 20-hour dashboard refresh, filter the loader to the completed capture window:
+
+```powershell
+python ingestion/load_raw_to_duckdb.py --static-dir data/raw/static_archives/c6_20260902 --snapshot-start snapshot_20260905_044611 --snapshot-end snapshot_20260906_004555
+```
+
 Run dbt:
 
 ```powershell
@@ -228,17 +235,17 @@ streamlit run dashboard/app.py
 
 ```text
 transitpulse/
-├── dashboard/              # Streamlit dashboard
-├── data/
-│   └── samples/            # Small committed samples only; raw/warehouse data is ignored
-├── dbt/                    # dbt project, models, tests, and profiles
-├── detection/              # Reserved for future detection utilities
-├── docs/                   # Investigation notes and project documentation
-├── ingestion/              # Static GTFS, GTFS-RT, and DuckDB loading scripts
-├── tests/                  # pytest tests for Python helpers
-├── requirements.txt
-├── pyproject.toml
-└── README.md
+|-- dashboard/              # Streamlit dashboard
+|-- data/
+|   `-- samples/            # Small committed samples only; raw/warehouse data is ignored
+|-- dbt/                    # dbt project, models, tests, and profiles
+|-- detection/              # Reserved for future detection utilities
+|-- docs/                   # Investigation notes and project documentation
+|-- ingestion/              # Static GTFS, GTFS-RT, and DuckDB loading scripts
+|-- tests/                  # pytest tests for Python helpers
+|-- requirements.txt
+|-- pyproject.toml
+`-- README.md
 ```
 
 ## Future Improvements
