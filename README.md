@@ -80,12 +80,25 @@ The Streamlit dashboard includes:
 
 ## Dashboard Screenshots
 
-Screenshots are not committed yet. Recommended portfolio screenshots to add later:
+### Executive Overview
 
-- Executive Overview
-- Anomaly Findings
-- On-Time Performance
-- Headway / Reliability caveat panel
+![Executive Overview](docs/screenshots/executive-overview.png)
+
+### Feed Quality
+
+![Feed Quality](docs/screenshots/feed-quality.png)
+
+### Anomaly Findings
+
+![Anomaly Findings](docs/screenshots/anomaly-findings.png)
+
+### On-Time Performance
+
+![On-Time Performance](docs/screenshots/on-time-performance.png)
+
+### Headway / Reliability
+
+![Headway / Reliability](docs/screenshots/headway-reliability.png)
 
 ## Validation Results
 
