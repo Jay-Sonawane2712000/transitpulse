@@ -264,7 +264,7 @@ For the clean 20-hour dashboard refresh, filter the loader to the completed capt
 python ingestion/load_raw_to_duckdb.py --static-dir data/raw/static_archives/c6_20260902 --snapshot-start snapshot_20260905_044611 --snapshot-end snapshot_20260906_004555
 ```
 
-Run dbt:
+Run dbt transformations and tests:
 
 ```powershell
 dbt --project-dir dbt --profiles-dir dbt run
