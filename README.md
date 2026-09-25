@@ -220,7 +220,7 @@ Install dependencies:
 python -m pip install -r requirements.txt
 ```
 
-Run the environment test:
+Run the environment smoke test:
 
 ```powershell
 python -m pytest tests/test_environment.py
