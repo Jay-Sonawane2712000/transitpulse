@@ -210,7 +210,7 @@ After rebuilding dbt, `int_trip_schedule_vs_actual` matched all current trip upd
 Final root cause:
 
 1. Static feed coverage was incomplete when only MTA Bus Company static GTFS was loaded. This was fixed by supporting all six MTA bus static feed families.
-2. Static/realtime schedule rating was mismatched. The current public static feeds use D6 service effective `2026-09-06`, while the `2026-09-02` realtime captures use C6 trip IDs. This was fixed by using MobilityDatabase archived C6 static feeds whose service windows include `2026-09-02`.
+2. Static/realtime schedule version was mismatched. The current public static feeds use D6 service effective `2026-09-06`, while the `2026-09-02` realtime captures use C6 trip IDs. This was fixed by using MobilityDatabase archived C6 static feeds whose service windows include `2026-09-02`.
 
 C6-to-D6 string normalization was rejected because C6 and D6 represent different published schedule versions/effective service periods. Rewriting identifiers would create false matches instead of preserving the actual data lineage.
 
