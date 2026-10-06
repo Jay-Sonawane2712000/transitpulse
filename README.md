@@ -2,6 +2,8 @@
 
 TransitPulse is a Bus Service Data Quality & Delay Intelligence Platform for NYC MTA bus data. It captures static GTFS schedules and GTFS-Realtime snapshots, loads them into DuckDB, models validated metrics with dbt, and presents feed quality, delay, route activity, headway proxy, and anomaly findings in a Streamlit dashboard.
 
+The dashboard describes feed and service indicators from the captured data; it does not measure complete rider experience or long-term system performance.
+
 The project is designed as a portfolio-grade analytics engineering build: reproducible local ingestion, documented warehouse layers, tested transformations, and a dashboard that clearly separates validated metrics from documented limitations.
 
 ## At A Glance
